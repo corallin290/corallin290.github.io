@@ -2,6 +2,7 @@ body {
   background-color: #000000;
   color: #00ff00;
   font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
   cursor: none;
 }
 
@@ -13,6 +14,9 @@ input {
   background-color: #000000;
   border: #000000;
   color: #00ff00;
+  opacity: 0;
+  filter: alpha(opacity=0);
   font-family: 'Courier New', monospace;
   cursor: none;
+  width: 0;
 }
