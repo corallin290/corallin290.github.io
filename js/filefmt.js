@@ -47,6 +47,10 @@ function _fmt_page_md(raw_string) {
       }
       i = i + 2;
     } else {
+      m = raw_string.substring(i,raw_string.length).match(/^\[([^\]]+)\]\(([^\)]+)\)/)
+      if (m !== null) {
+        console.log(m);
+      }
       formatted_string += character;
       i++;
     }
