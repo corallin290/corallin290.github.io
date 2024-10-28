@@ -1,15 +1,7 @@
-var fileSystem = {
-  // TODO(aurin)
-  "about_me": "TODO",
-  "misc": {
-    "test1": "text text",
-    "text2": "abcde fjkla;s"
-  }
-};
 var cwd = [{name:"", object:fileSystem}];
 
 function _is_file(obj) {
-  return typeof dstObj === 'string' || dstObj instanceof String;
+  return dstObj === null || typeof dstObj === 'function';
 }
 function _is_directory(obj) {
   return !_is_file(obj);
@@ -47,7 +39,8 @@ function cmd_cat(args) {
     return {returnCode:1, stdout:"", stderr:args[0]+": "+dst+" is not a file"};
   }
 
-  return {returnCode:0, stdout:dstObj, stderr:""};
+  html = _cmd_cat(dst, dstObj);
+  return {returnCode:0, stdout:"", stderr:"", html:html};
 }
 
 function cmd_pwd(args) {
@@ -98,7 +91,6 @@ function cmd_cd(args) {
     return {returnCode:1, stdout:"", stderr:args[0]+": Too many arguments"};
   }
   dst = args[1].split("/");
-  console.log(dst);
 
   for (let i = 0; i < dst.length; i++) {
     response = _cd_single(dst[i]);
@@ -113,6 +105,11 @@ function cmd_cd(args) {
   return {returnCode:0, stdout:"", stderr:""};
 };
 
+function cmd_clear(args) {
+  clearDisplayHistory();
+  return {returnCode:0, stdout:"", stderr:""};
+}
+
 function cmd_help(args) {
   return {
     returnCode: 0,
@@ -122,8 +119,13 @@ function cmd_help(args) {
   };
 };
 
+
 function handleCmdResponse(response) {
-  if (response.returnCode == 0) { return response.stdout; }
+  if (response.returnCode == 0) {
+    if (Object.hasOwn(response, "html")) {
+      return response.html;
+    } else { return response.stdout; }
+  }
   else if (response.returnCode == 1) { return response.stderr; }
   else { return response.stdout+" "+response.stderr; }
 };
@@ -131,72 +133,16 @@ function handleCmdResponse(response) {
 function handleCommand(args) {
   if (args.length == 0) {
     return "";
-  } else if (args[0] == "cd") {
-    response = cmd_cd(args);
-  } else if (args[0] == "ls") {
-    response = cmd_ls(args);
-  } else if (args[0] == "pwd") {
-    response = cmd_pwd(args);
-  } else if (args[0] == "cat") {
-    response = cmd_cat(args);
-  } else {
+  }
+  func = window["cmd_"+args[0]];
+  if (typeof func === 'undefined') {
     response = {
       returnCode: 1,
       stdout: "",
       stderr: "Unknown command "+args[0]+". Try typing 'help' for a list of valid commands."
     };
+  } else {
+    response = func(args);
   }
   return handleCmdResponse(response);
-};
-
-
-function updateDisplayHistory(response) {
-  displayHistory = document.getElementById("display-history");
-  current = displayHistory.innerHTML;
-  if (response.length > 0) {
-    current = current + response + "\n";
-    displayHistory.innerHTML = current;
-  }
-};
-
-
-inputBox = document.getElementById("input-box");
-
-// Update display whenever new text is entered
-function updateInputDisplay(inputBox) {
-  inputDisplay = document.getElementById("input-display-before")
-  inputDisplay.innerHTML = inputBox.value + "█";
-};
-inputBox.onkeyup = function() { updateInputDisplay(this); };
-
-// Prevent text selection in input box
-inputBox.onselect = function() {
-  this.selectionStart = this.selectionEnd;
-};
-
-// Force focus on input box
-inputBox.focus();
-inputBox.onblur = function() {
-  setTimeout(function () { document.getElementById("input-box").focus(); }, 20);
-};
-
-inputBox.onkeydown = function(e) {
-  if (e.keyCode == 37 || e.keyCode == 39) {
-    // Prevent cursor movement
-    e.preventDefault();
-  } else if (e.keyCode == 13) {
-    inputText = this.value;
-    this.value = "";
-    updateInputDisplay(this);
-    updateDisplayHistory("> "+inputText);
-
-    console.log("command: "+inputText);
-
-    var args = inputText.split(" ");
-    response = handleCommand(args);
-    updateDisplayHistory(response);
-  } else {
-    // Always update immediately
-    updateInputDisplay(this);
-  }
 };
