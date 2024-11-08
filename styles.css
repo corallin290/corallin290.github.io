@@ -28,3 +28,8 @@ input {
   cursor: none;
   width: 0;
 }
+
+span.ls-directory {
+  font-weight: bold;
+  color:  #24c1f0;
+}

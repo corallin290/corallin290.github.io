@@ -1,7 +1,7 @@
 var cwd = [{name:"", object:fileSystem}];
 
 function _is_file(obj) {
-  return dstObj === null || typeof dstObj === 'function';
+  return obj === null || typeof obj === 'function';
 }
 function _is_directory(obj) {
   return !_is_file(obj);
@@ -52,10 +52,25 @@ function cmd_pwd(args) {
 };
 
 function cmd_ls(args) {
-  root = cwd[cwd.length-1].object;
-  nodes = []
+  if (args.length > 1) {
+    if (_cwd_contains(args[1])) {
+      root = _cwd_get(args[1]);
+      if ( ! _is_directory(root)) {
+        return {returnCode:1, stdout:"", stderr:args[0]+": "+args[1]+" is not a directory"};
+      }
+    } else {
+      return {returnCode:1, stdout:"", stderr:args[0]+": "+args[1]+" not found"};
+    }
+  } else {
+    root = _get_cwd_obj();
+  }
+  nodes = [];
   for (var node in root) {
-    nodes.push(node)
+    if (_is_directory(_directory_get(root, node))) {
+      nodes.push('<span class="ls-directory">'+node+'</span>');
+    } else {
+      nodes.push(node);
+    }
   }
   return {returnCode:0, stdout:nodes.join("\n"), stderr:""};
 };
