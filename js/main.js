@@ -2,7 +2,7 @@ inputBox = document.getElementById("input-box");
 
 // Update display whenever new text is entered
 function updateInputDisplay(inputBox) {
-  inputDisplay = document.getElementById("input-display-before")
+  const inputDisplay = document.getElementById("input-display-before")
   inputDisplay.innerHTML = inputBox.value + "█";
 };
 inputBox.onkeyup = function() { updateInputDisplay(this); };
@@ -23,13 +23,13 @@ inputBox.onkeydown = function(e) {
     // Prevent cursor movement
     e.preventDefault();
   } else if (e.keyCode == 13) {
-    inputText = this.value;
+    const inputText = this.value;
     this.value = "";
     updateInputDisplay(this);
     updateDisplayHistory("> "+inputText);
 
-    var args = inputText.split(" ");
-    response = handleCommand(args);
+    const args = inputText.split(" ");
+    const response = handleCommand(args);
     updateDisplayHistory(response);
   } else {
     // Always update immediately

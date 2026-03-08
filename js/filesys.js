@@ -30,21 +30,21 @@ function cmd_cat(args) {
     return {returnCode:1, stdout:"", stderr:args[0]+": Too many arguments"};
   }
 
-  dst = args[1];
+  const dst = args[1];
   if ( ! _cwd_contains(dst)) {
     return {returnCode:1, stdout:"", stderr:args[0]+": No file named "+dst};
   }
-  dstObj = _cwd_get(dst);
+  const dstObj = _cwd_get(dst);
   if ( ! _is_file(dstObj)) {
     return {returnCode:1, stdout:"", stderr:args[0]+": "+dst+" is not a file"};
   }
 
-  html = _cmd_cat(dst, dstObj);
+  const html = _cmd_cat(dst, dstObj);
   return {returnCode:0, stdout:"", stderr:"", html:html};
 }
 
 function cmd_pwd(args) {
-  var p = [];
+  const p = [];
   for (let i = 1; i < cwd.length; i++) {
     p.push(cwd[i].name);
   }
@@ -52,6 +52,7 @@ function cmd_pwd(args) {
 };
 
 function cmd_ls(args) {
+  let root;
   if (args.length > 1) {
     if (_cwd_contains(args[1])) {
       root = _cwd_get(args[1]);
@@ -64,8 +65,8 @@ function cmd_ls(args) {
   } else {
     root = _get_cwd_obj();
   }
-  nodes = [];
-  for (var node in root) {
+  const nodes = [];
+  for (const node in root) {
     if (_is_directory(_directory_get(root, node))) {
       nodes.push('<span class="ls-directory">'+node+'</span>');
     } else {
@@ -89,7 +90,7 @@ function _cd_single(dst) {
   if ( ! _cwd_contains(dst)) {
     return {returnCode:1, stdout:"", stderr:"No directory named "+dst};
   }
-  dstObj = _cwd_get(dst);
+  const dstObj = _cwd_get(dst);
   if ( ! _is_directory(dstObj)) {
     return {returnCode:1, stdout:"", stderr:dst+" is not a directory"};
   }
@@ -105,10 +106,10 @@ function cmd_cd(args) {
   if (args.length > 2) {
     return {returnCode:1, stdout:"", stderr:args[0]+": Too many arguments"};
   }
-  dst = args[1].split("/");
+  const dst = args[1].split("/");
 
   for (let i = 0; i < dst.length; i++) {
-    response = _cd_single(dst[i]);
+    const response = _cd_single(dst[i]);
     if (response.returnCode != 0) {
       if (response.stderr.length > 0) {
         response.stderr = args[0]+": "+response.stderr;
@@ -149,7 +150,8 @@ function handleCommand(args) {
   if (args.length == 0) {
     return "";
   }
-  func = window["cmd_"+args[0]];
+  const func = window["cmd_"+args[0]];
+  let response;
   if (typeof func === 'undefined') {
     response = {
       returnCode: 1,

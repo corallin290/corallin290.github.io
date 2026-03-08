@@ -1,7 +1,7 @@
 displayHistory = document.getElementById("display-history");
 
 function updateDisplayHistory(response) {
-  current = displayHistory.innerHTML;
+  let current = displayHistory.innerHTML;
   if (response.length > 0) {
     current = current + response + "\n";
     displayHistory.innerHTML = current;
@@ -9,7 +9,7 @@ function updateDisplayHistory(response) {
 };
 
 function clearDisplayHistory() {
-  current = displayHistory.innerHTML;
+  const current = displayHistory.innerHTML;
   displayHistory.innerHTML = "";
   return current;
 }

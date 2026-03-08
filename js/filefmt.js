@@ -1,6 +1,6 @@
 function _fmt_page_md_heading(count) {
   if (count < 3) {
-    heading = count + 1;
+    const heading = count + 1;
     return [`<h${heading} style="margin:0; padding:0;">`,`hh${heading}`];
   } else if (count == 3) {
     return [`<div style="font-weight:bold;">`,`hdiv`];
@@ -25,7 +25,7 @@ function _fmt_page_md(raw_string) {
       formatted_string += fmt[0];
       stack.push(fmt[1]);
     } else if (character === "\n" && stack[stack.length-1].startsWith("h")) {
-      tag = stack.pop();
+      const tag = stack.pop();
       formatted_string += `</${tag.substring(1,tag.length)}>`;
       i = i + 1;
     } else if (character == "*" && i+1 < raw_string.length && raw_string[i+1] == "*") {
@@ -47,7 +47,7 @@ function _fmt_page_md(raw_string) {
       }
       i = i + 2;
     } else {
-      m = raw_string.substring(i,raw_string.length).match(/^\[([^\]]+)\]\(([^\)]+)\)/)
+      const m = raw_string.substring(i,raw_string.length).match(/^\[([^\]]+)\]\(([^\)]+)\)/)
       if (m !== null) {
         console.log(m);
       }
@@ -60,12 +60,12 @@ function _fmt_page_md(raw_string) {
 
 function _cmd_cat(page, func) {
   if (func === null) {
-    func = window["_get_page_"+dst];
+    func = window["_get_page_"+page];
     if (typeof func === 'undefined') {
       func = _get_page_todo;
     }
   }
-  raw_string = func().trim();
-  formatted_string = _fmt_page_md(raw_string);
+  const raw_string = func().trim();
+  const formatted_string = _fmt_page_md(raw_string);
   return formatted_string;
 }
