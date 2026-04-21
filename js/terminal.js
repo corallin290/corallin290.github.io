@@ -19,7 +19,7 @@ const promptEl = document.getElementById('prompt');
 
 function updatePrompt() {
   const display = cwd === '/' ? '~' : '~' + cwd;
-  promptEl.textContent = `visitor@site:${display}$ `;
+  promptEl.textContent = `visitor@corallins-website:${display}$ `;
 }
 
 function appendOutput(html, inputLine) {
