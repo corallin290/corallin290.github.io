@@ -12,6 +12,19 @@ const REVEAL_PORTION = 0.8;
 const PRE_ROLL = (1 - REVEAL_PORTION) / 2;  // 10%
 const POST_ROLL = (1 - REVEAL_PORTION) / 2; // 10%
 
+/**
+ * Apply the fade-line sweep animation to an arbitrary element. Shifts
+ * delay so the visible reveal starts immediately (t=0). Returns the
+ * animation's total duration in seconds.
+ */
+export function applyFadeLine(el, chars) {
+  const duration = chars > 0 ? chars / CHARS_PER_SECOND / REVEAL_PORTION : 0;
+  el.classList.add('fade-line');
+  el.style.setProperty('--fade-delay', `${-PRE_ROLL * duration}s`);
+  el.style.setProperty('--fade-duration', `${duration}s`);
+  return duration;
+}
+
 export function render(text, isMarkdown) {
   if (isMarkdown && typeof marked !== 'undefined') {
     return marked.parse(text);
@@ -190,4 +203,8 @@ export function animateLines(block) {
     prevDelay = delay;
     prevDuration = duration;
   }
+
+  // Return the wall-clock time (seconds from now) at which the last line's
+  // visible reveal finishes. Useful for sequencing follow-up animations.
+  return entries.length > 0 ? prevDelay + (1 - POST_ROLL) * prevDuration : 0;
 }

@@ -1,6 +1,8 @@
 import * as fs from './filesystem.js';
 import * as commands from './commands/registry.js';
-import { render, animateLines } from './renderer.js';
+import { render, animateLines, applyFadeLine } from './renderer.js';
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let cwd = '/';
 
@@ -14,6 +16,9 @@ const ctx = {
 const output = document.getElementById('output');
 const utilButtons = document.getElementById('util-buttons');
 const promptEl = document.getElementById('prompt');
+const promptArea = document.getElementById('prompt-area');
+
+let commandInFlight = false;
 
 function updatePrompt() {
   const display = cwd === '/' ? '~' : '~' + cwd;
@@ -71,28 +76,71 @@ function appendOutput({ html, inputLine, items }) {
   }
 
   output.appendChild(block);
-  animateLines(block);
+  const duration = animateLines(block);
   window.scrollTo(0, document.body.scrollHeight);
+  return duration;
+}
+
+async function runPromptIntro() {
+  // Prompt area is visible but utils are hidden and prompt shows the base $
+  promptArea.style.visibility = 'visible';
+  utilButtons.classList.add('hidden');
+
+  promptEl.classList.add('base');
+  promptEl.textContent = '$';
+  await sleep(450);
+
+  promptEl.classList.add('blinking');
+  await sleep(800);
+  promptEl.classList.remove('blinking');
+  await sleep(400);
+
+  // Swap to the full prompt and fade it in left-to-right.
+  promptEl.classList.remove('base');
+  updatePrompt();
+  const duration = applyFadeLine(promptEl, promptEl.textContent.length);
+  await sleep(duration * 800);
+
+  // Clean up fade-line artifacts so future updatePrompt calls render cleanly.
+  promptEl.classList.remove('fade-line');
+  promptEl.style.removeProperty('--fade-delay');
+  promptEl.style.removeProperty('--fade-duration');
+
+  utilButtons.classList.remove('hidden');
 }
 
 async function runCommand(name, args, showInput) {
-  const cmd = commands.getCommand(name);
-  if (!cmd) return;
+  if (commandInFlight) return;
+  commandInFlight = true;
+  try {
+    const cmd = commands.getCommand(name);
+    if (!cmd) return;
 
-  disableActiveFileButtons();
+    disableActiveFileButtons();
 
-  const inputLine = showInput ? [name, ...args].join(' ') : undefined;
-  const result = await cmd.execute(args, ctx);
+    // Hide the prompt area synchronously on click — before any await —
+    // so the previous prompt never lingers while the command executes.
+    promptArea.style.visibility = 'hidden';
 
-  if (result.clear) {
-    output.innerHTML = '';
-    updatePrompt();
-    return;
+    const inputLine = showInput ? [name, ...args].join(' ') : undefined;
+    const result = await cmd.execute(args, ctx);
+
+    if (result.clear) {
+      output.innerHTML = '';
+      updatePrompt();
+      promptArea.style.visibility = 'visible';
+      return;
+    }
+
+    const html = result.text ? render(result.text, result.isMarkdown) : '';
+    const outputDuration = appendOutput({ html, inputLine, items: result.items });
+
+    await sleep(outputDuration * 1000);
+
+    await runPromptIntro();
+  } finally {
+    commandInFlight = false;
   }
-
-  const html = result.text ? render(result.text, result.isMarkdown) : '';
-  appendOutput({ html, inputLine, items: result.items });
-  updatePrompt();
 }
 
 function renderUtilButtons() {
