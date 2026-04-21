@@ -20,9 +20,13 @@ const promptArea = document.getElementById('prompt-area');
 
 let commandInFlight = false;
 
-function updatePrompt() {
+function currentPromptText() {
   const display = cwd === '/' ? '~' : '~' + cwd;
-  promptEl.textContent = `visitor@corallins-website:${display}$ `;
+  return `visitor@corallins-website:${display}$ `;
+}
+
+function updatePrompt() {
+  promptEl.textContent = currentPromptText();
 }
 
 function makeFileButton(item) {
@@ -32,9 +36,9 @@ function makeFileButton(item) {
 
   btn.addEventListener('click', async () => {
     if (item.type === 'dir') {
-      await runCommand('cd', [item.name], true);
+      await runCommand('cd', [item.name]);
     } else {
-      await runCommand('cat', [item.name], true);
+      await runCommand('cat', [item.name]);
     }
   });
 
@@ -48,22 +52,14 @@ function disableActiveFileButtons() {
   }
 }
 
-function appendOutput({ html, inputLine, items }) {
+function appendOutput({ html, items }) {
   const block = document.createElement('div');
   block.className = 'output-block';
-
-  if (inputLine !== undefined) {
-    const promptSpan = document.createElement('span');
-    promptSpan.className = 'prompt-echo';
-    promptSpan.textContent = inputLine;
-    block.appendChild(promptSpan);
-  }
 
   const content = document.createElement('div');
   content.className = 'output-content';
 
   if (items) {
-    // Render inline file buttons instead of text
     for (const item of items) {
       content.appendChild(makeFileButton(item));
     }
@@ -81,12 +77,86 @@ function appendOutput({ html, inputLine, items }) {
   return duration;
 }
 
+// Snapshot of the committed prompt-area state — styled to match the live
+// prompt-area's transitioned appearance exactly, so swapping one for the
+// other at commit time is visually seamless.
+function createEchoDiv(promptText, commandText) {
+  const div = document.createElement('div');
+  div.className = 'prompt-area-committed';
+
+  const promptSpan = document.createElement('span');
+  promptSpan.className = 'prompt-committed';
+  promptSpan.textContent = promptText;
+  div.appendChild(promptSpan);
+
+  if (commandText) {
+    const cmdSpan = document.createElement('span');
+    cmdSpan.className = 'command-committed';
+    cmdSpan.textContent = commandText;
+    div.appendChild(cmdSpan);
+  }
+
+  return div;
+}
+
+// Animate the live prompt-area transitioning into its committed state: the
+// prompt dims, util-buttons fade out, and the selected command fades in
+// where the buttons were. After the transition, append an echo snapshot to
+// #output and reset the live prompt-area to its pre-intro state.
+async function animateLivePromptCommit(promptText, commandText) {
+  // Phase 1: dim the prompt and fade the util-buttons out in place.
+  promptEl.classList.add('dimmed');
+  utilButtons.classList.add('hidden');
+
+  // Let the util-buttons fade complete (0.15s) before removing them from
+  // layout. Inserting the command span while the buttons still occupy
+  // space would shove the buttons sideways mid-fade.
+  await sleep(150);
+  utilButtons.style.display = 'none';
+
+  // Phase 2: now that buttons are out of flow, slot the command span into
+  // the position they occupied (right after the prompt) and fade it in.
+  const cmdSpan = document.createElement('span');
+  cmdSpan.className = 'prompt-command';
+  cmdSpan.textContent = commandText;
+  promptArea.appendChild(cmdSpan);
+
+  await new Promise((r) => requestAnimationFrame(r));
+  cmdSpan.classList.add('visible');
+
+  // Wait for the cmdSpan's 0.5s fade-in to fully complete — otherwise the
+  // instant-full-opacity echoDiv that replaces the live prompt-area at
+  // commit time would read as a brightness snap.
+  await sleep(500);
+
+  // Commit: snapshot into #output, then snap-hide the live prompt-area via
+  // display:none so its transitioned contents don't briefly duplicate the
+  // echoDiv's (the echo sits where the prompt-area was; the prompt-area
+  // would otherwise fade out visibly below it). .hidden is pre-set so the
+  // next intro triggers an opacity fade-in. util-buttons stays .hidden so
+  // it re-fades-in at the tail end of runPromptIntro.
+  output.appendChild(createEchoDiv(promptText, commandText));
+  promptArea.style.display = 'none';
+  cmdSpan.remove();
+  promptEl.classList.remove('dimmed');
+  promptArea.classList.add('hidden');
+
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
 async function runPromptIntro() {
-  // Prompt-area was hidden while output animated; prep the base $ state
-  // before un-hiding so the old prompt text never flashes visible.
-  // Utils stay hidden (they were faded out on click).
+  // Prompt-area is hidden; prep the base $ state before unhiding so the
+  // full prompt text doesn't flash visible.
   promptEl.classList.add('base');
   promptEl.textContent = '$';
+  // Restore util-buttons and prompt-area layout (both were display:none
+  // during the commit). util-buttons stays .hidden so it can fade in at
+  // the tail end of the intro.
+  utilButtons.style.display = '';
+  promptArea.style.display = '';
+  // Wait a frame so the browser has a painted "from" state at opacity 0
+  // before we trigger the opacity transition.
+  await new Promise((r) => requestAnimationFrame(r));
   promptArea.classList.remove('hidden');
   await sleep(450);
 
@@ -95,9 +165,7 @@ async function runPromptIntro() {
   promptEl.classList.remove('blinking');
   await sleep(400);
 
-  // Swap to the full prompt and fade it in left-to-right. Hide with
-  // visibility until the next frame so the new prompt text never flashes
-  // at full opacity before the mask animation takes effect.
+  // Swap to the full prompt and fade it in left-to-right.
   promptEl.classList.remove('base');
   promptEl.style.visibility = 'hidden';
   updatePrompt();
@@ -106,7 +174,6 @@ async function runPromptIntro() {
   promptEl.style.visibility = '';
   await sleep(duration * 800);
 
-  // Clean up fade-line artifacts so future updatePrompt calls render cleanly.
   promptEl.classList.remove('fade-line');
   promptEl.style.removeProperty('--fade-delay');
   promptEl.style.removeProperty('--fade-duration');
@@ -114,55 +181,58 @@ async function runPromptIntro() {
   utilButtons.classList.remove('hidden');
 }
 
-function currentPromptText() {
-  const display = cwd === '/' ? '~' : '~' + cwd;
-  return `visitor@corallins-website:${display}$ `;
-}
-
-async function executeStep(name, args, { silent, showInput }) {
-  const cmd = commands.getCommand(name);
-  if (!cmd) return;
-
-  disableActiveFileButtons();
-  promptArea.classList.add('hidden');
-  utilButtons.classList.add('hidden');
-
-  const inputLine = showInput ? [name, ...args].join(' ') : undefined;
-  const result = await cmd.execute(args, ctx);
-
-  if (result.clear) {
-    output.innerHTML = '';
-    updatePrompt();
-    promptArea.classList.remove('hidden');
-    utilButtons.classList.remove('hidden');
-    return;
-  }
-
-  const html = result.text ? render(result.text, result.isMarkdown) : '';
-  const outputDuration = appendOutput({ html, inputLine, items: result.items });
-
-  await sleep(outputDuration * 1000);
-
-  if (!silent) {
-    await runPromptIntro();
-  }
-}
-
 async function runCommandSequence(steps) {
   if (commandInFlight) return;
   commandInFlight = true;
   try {
+    disableActiveFileButtons();
+
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
-      const silent = i < steps.length - 1;
-      await executeStep(step.name, step.args, { silent, showInput: true });
+      const promptText = currentPromptText();
+      const commandText = [step.name, ...step.args].join(' ');
+      const isFirst = i === 0;
+
+      if (isFirst) {
+        // User-initiated: animate the live prompt-area into its committed state.
+        await animateLivePromptCommit(promptText, commandText);
+      } else {
+        // Chained step: the live prompt-area is already hidden, so just
+        // drop a committed echo into the output directly.
+        output.appendChild(createEchoDiv(promptText, commandText));
+        window.scrollTo(0, document.body.scrollHeight);
+      }
+
+      const cmd = commands.getCommand(step.name);
+      if (!cmd) continue;
+
+      const result = await cmd.execute(step.args, ctx);
+
+      if (result.clear) {
+        output.innerHTML = '';
+        promptArea.style.display = '';
+        utilButtons.style.display = '';
+        utilButtons.classList.remove('hidden');
+        promptArea.classList.remove('hidden');
+        updatePrompt();
+        return;
+      }
+
+      // Small pause so the committed echo settles before output slides in.
+      await sleep(250);
+
+      const html = result.text ? render(result.text, result.isMarkdown) : '';
+      const outputDuration = appendOutput({ html, items: result.items });
+      await sleep(outputDuration * 1000);
     }
+
+    await runPromptIntro();
   } finally {
     commandInFlight = false;
   }
 }
 
-async function runCommand(name, args, showInput) {
+async function runCommand(name, args) {
   return runCommandSequence([{ name, args }]);
 }
 
@@ -170,14 +240,14 @@ function renderUtilButtons() {
   utilButtons.innerHTML = '';
 
   const utils = [
-    { label: 'ls', action: () => runLs() },
+    { label: 'ls', action: () => runCommand('ls', []) },
     { label: 'cd ..', action: () => runCommandSequence([
       { name: 'cd', args: ['..'] },
       { name: 'ls', args: [] },
     ]) },
-    { label: 'pwd', action: () => runCommand('pwd', [], true) },
-    { label: 'help', action: () => runCommand('help', [], true) },
-    { label: 'clear', action: () => runCommand('clear', [], true) },
+    { label: 'pwd', action: () => runCommand('pwd', []) },
+    { label: 'help', action: () => runCommand('help', []) },
+    { label: 'clear', action: () => runCommand('clear', []) },
   ];
 
   for (const u of utils) {
@@ -187,10 +257,6 @@ function renderUtilButtons() {
     btn.addEventListener('click', u.action);
     utilButtons.appendChild(btn);
   }
-}
-
-async function runLs() {
-  await runCommand('ls', [], true);
 }
 
 export async function init() {

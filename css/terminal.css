@@ -226,10 +226,12 @@ a { color: var(--accent); }
   align-items: center;
   flex-wrap: wrap;
   gap: 0.4em;
+  transition: opacity 0.25s ease-out;
 }
 
 #prompt-area.hidden {
-  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 #util-buttons {
@@ -284,4 +286,49 @@ a { color: var(--accent); }
 
 .util-btn:hover {
   color: var(--fg);
+}
+
+/* Command text shown in the live prompt-area after util-buttons have been
+   display:none'd. With the buttons out of the flex flow, the span falls
+   into the slot the buttons were occupying (right after the prompt). */
+.prompt-command {
+  color: var(--dim);
+  white-space: pre;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+}
+
+.prompt-command.visible {
+  opacity: 1;
+}
+
+/* Historical echo: snapshot of the live prompt-area's committed state,
+   styled to match exactly so appending it in place of the live prompt-area
+   produces no visual jump. */
+.prompt-area-committed {
+  padding: 0.4em 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4em;
+}
+
+.prompt-committed {
+  color: var(--accent);
+  opacity: 0.3;
+  white-space: pre;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.command-committed {
+  color: var(--dim);
+  white-space: pre;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.05em;
 }
