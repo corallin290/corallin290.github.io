@@ -271,6 +271,61 @@ function renderUtilButtons() {
   }
 }
 
+// ── Tooltips ──
+// Single shared tooltip element, positioned on hover relative to the viewport
+// so it can clamp/flip when an anchor sits near a window edge.
+let tooltipEl = null;
+
+function ensureTooltip() {
+  if (tooltipEl) return tooltipEl;
+  tooltipEl = document.createElement('div');
+  tooltipEl.className = 'tooltip';
+  document.body.appendChild(tooltipEl);
+  return tooltipEl;
+}
+
+function showTooltip(target) {
+  const text = target.dataset.tooltip;
+  if (!text) return;
+  const el = ensureTooltip();
+  el.textContent = text;
+  // Make visible (but still opacity 0) so we can measure.
+  el.style.left = '0px';
+  el.style.top = '0px';
+  el.classList.add('visible');
+
+  const gap = 6;
+  const margin = 8;
+  const anchor = target.getBoundingClientRect();
+  const tip = el.getBoundingClientRect();
+
+  // Horizontal: center over anchor, then clamp to viewport.
+  let left = anchor.left + anchor.width / 2 - tip.width / 2;
+  left = Math.max(margin, Math.min(left, window.innerWidth - tip.width - margin));
+
+  // Vertical: prefer above; flip below if that would clip the top edge.
+  let top = anchor.top - tip.height - gap;
+  if (top < margin) top = anchor.bottom + gap;
+
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
+}
+
+function hideTooltip() {
+  if (tooltipEl) tooltipEl.classList.remove('visible');
+}
+
+// Delegated listeners: works for buttons created at any time (util buttons,
+// file buttons, the parent-dir button) without per-button wiring.
+document.addEventListener('pointerover', (e) => {
+  const target = e.target.closest('[data-tooltip]');
+  if (target) showTooltip(target);
+});
+document.addEventListener('pointerout', (e) => {
+  const target = e.target.closest('[data-tooltip]');
+  if (target && !target.contains(e.relatedTarget)) hideTooltip();
+});
+
 export async function init() {
   await fs.init();
   updatePrompt();
