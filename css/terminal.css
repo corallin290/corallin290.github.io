@@ -148,7 +148,7 @@ a { color: var(--accent); }
 }
 
 #prompt.blinking {
-  animation: prompt-blink 0.4s 2;
+  animation: prompt-blink 0.3s 2;
 }
 
 #input {

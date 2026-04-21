@@ -172,12 +172,12 @@ async function runPromptIntro() {
   // before we trigger the opacity transition.
   await new Promise((r) => requestAnimationFrame(r));
   promptArea.classList.remove('hidden');
-  await sleep(450);
+  await sleep(200);
 
   promptEl.classList.add('blinking');
-  await sleep(800);
+  await sleep(600);
   promptEl.classList.remove('blinking');
-  await sleep(400);
+  await sleep(100);
 
   // Swap to the full prompt and fade it in left-to-right.
   promptEl.classList.remove('base');
