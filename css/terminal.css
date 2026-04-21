@@ -1,0 +1,169 @@
+/* ── Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #1a1a2e;
+  --fg: #e0e0e0;
+  --accent: #00d4aa;
+  --dim: #888;
+  --border: #444;
+  --btn-bg: #2a2a3e;
+  --btn-hover: #3a3a5e;
+  --dir-color: #5dade2;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a { color: var(--accent); }
+
+/* ── Landing / Picker ── */
+.picker-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.picker {
+  text-align: center;
+}
+
+.picker h1 {
+  color: var(--accent);
+  margin-bottom: 0.5em;
+}
+
+.picker p {
+  margin-bottom: 1.5em;
+  color: var(--dim);
+}
+
+.picker-buttons {
+  display: flex;
+  gap: 1em;
+  justify-content: center;
+}
+
+.picker-btn {
+  display: inline-block;
+  padding: 0.8em 1.6em;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.picker-btn:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* ── Terminal ── */
+#terminal {
+  padding: 1em;
+  min-height: 100vh;
+}
+
+#input-line {
+  display: flex;
+  align-items: center;
+}
+
+#prompt {
+  color: var(--accent);
+  white-space: pre;
+}
+
+#input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--fg);
+  font: inherit;
+  outline: none;
+  caret-color: var(--accent);
+}
+
+/* ── Output ── */
+.output-block {
+  margin-bottom: 0.5em;
+}
+
+.prompt-echo {
+  color: var(--dim);
+  display: block;
+  margin-bottom: 0.25em;
+}
+
+.output-content pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* ── Rendered Markdown ── */
+.output-content h1 { font-size: 1.4em; color: var(--accent); margin: 0.5em 0 0.3em; }
+.output-content h2 { font-size: 1.2em; color: var(--accent); margin: 0.4em 0 0.2em; }
+.output-content h3 { font-size: 1.05em; color: var(--accent); margin: 0.3em 0 0.2em; }
+.output-content p { margin: 0.3em 0; }
+.output-content ul, .output-content ol { padding-left: 1.5em; margin: 0.3em 0; }
+.output-content strong { color: #fff; }
+.output-content code { background: #2a2a3e; padding: 0.1em 0.3em; }
+
+/* ── Interactive Mode ── */
+#interactive {
+  padding: 1em;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#button-bar {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg);
+  padding: 1em 0;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+#file-buttons, #util-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.file-btn, .util-btn {
+  background: var(--btn-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 0.5em 1em;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.file-btn:hover, .util-btn:hover {
+  background: var(--btn-hover);
+  border-color: var(--accent);
+}
+
+.dir-btn {
+  color: var(--dir-color);
+  border-color: var(--dir-color);
+}
+
+.util-btn {
+  border-color: var(--dim);
+  color: var(--dim);
+}
+
+.util-btn:hover {
+  color: var(--fg);
+}

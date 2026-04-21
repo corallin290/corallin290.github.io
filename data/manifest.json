@@ -1,0 +1,27 @@
+{
+  "type": "dir",
+  "name": "/",
+  "children": [
+    {
+      "type": "dir",
+      "name": "projects",
+      "children": [
+        {
+          "type": "file",
+          "name": "example.md",
+          "path": "data/projects/example.md"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "about.md",
+      "path": "data/about.md"
+    },
+    {
+      "type": "file",
+      "name": "education.md",
+      "path": "data/education.md"
+    }
+  ]
+}
