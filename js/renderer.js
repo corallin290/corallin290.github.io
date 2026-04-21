@@ -205,6 +205,16 @@ export function animateLines(block) {
     el.style.setProperty('--fade-delay', `${delay}s`);
     el.style.setProperty('--fade-duration', `${duration}s`);
 
+    // Clear the fade-line class once done — otherwise the mask-image that
+    // drives the reveal sweep lingers indefinitely and masks out anything
+    // painted outside the element's box (e.g., a tooltip ::after positioned
+    // above the element). Descendants' pseudo-elements inherit this mask.
+    el.addEventListener('animationend', () => {
+      el.classList.remove('fade-line');
+      el.style.removeProperty('--fade-delay');
+      el.style.removeProperty('--fade-duration');
+    }, { once: true });
+
     prevDelay = delay;
     prevDuration = duration;
   }

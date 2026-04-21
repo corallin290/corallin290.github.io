@@ -55,7 +55,8 @@ function disableActiveFileButtons() {
 function makeParentDirButton() {
   const btn = document.createElement('button');
   btn.className = 'file-btn dir-btn';
-  btn.textContent = 'parent directory';
+  btn.textContent = '..';
+  btn.dataset.tooltip = 'Go to parent directory';
   btn.addEventListener('click', async () => {
     await runCommand('cd', ['..']);
   });
@@ -253,16 +254,18 @@ function renderUtilButtons() {
   utilButtons.innerHTML = '';
 
   const utils = [
-    { label: 'ls', action: () => runCommand('ls', []) },
-    { label: 'pwd', action: () => runCommand('pwd', []) },
-    { label: 'help', action: () => runCommand('help', []) },
-    { label: 'clear', action: () => runCommand('clear', []) },
+    { label: 'ls', name: 'ls', action: () => runCommand('ls', []) },
+    { label: 'pwd', name: 'pwd', action: () => runCommand('pwd', []) },
+    { label: 'help', name: 'help', action: () => runCommand('help', []) },
+    { label: 'clear', name: 'clear', action: () => runCommand('clear', []) },
   ];
 
   for (const u of utils) {
     const btn = document.createElement('button');
     btn.className = 'util-btn';
     btn.textContent = u.label;
+    const cmd = commands.getCommand(u.name);
+    if (cmd) btn.dataset.tooltip = cmd.description;
     btn.addEventListener('click', u.action);
     utilButtons.appendChild(btn);
   }
