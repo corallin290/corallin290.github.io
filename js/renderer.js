@@ -65,16 +65,21 @@ function splitIntoVisualLines(el) {
   const measurable = units.filter((u) => u.kind === 'measurable');
   if (measurable.length === 0) return [el];
 
-  // Group measurables by offsetTop = visual line.
+  // Group measurables by visual line. Two elements are on the same line if
+  // their vertical y-ranges overlap at all — this handles elements with
+  // different heights (e.g., inline <code> with smaller font + padding).
   const groups = [];
   let current = null;
   for (const u of measurable) {
-    const top = u.el.offsetTop;
-    if (!current || Math.abs(top - current.top) > 2) {
-      current = { top, units: [] };
+    const rect = u.el.getBoundingClientRect();
+    if (!current || rect.top >= current.bottom || rect.bottom <= current.top) {
+      current = { top: rect.top, bottom: rect.bottom, units: [u] };
       groups.push(current);
+    } else {
+      current.units.push(u);
+      current.top = Math.min(current.top, rect.top);
+      current.bottom = Math.max(current.bottom, rect.bottom);
     }
-    current.units.push(u);
   }
 
   if (groups.length <= 1) return [el];
