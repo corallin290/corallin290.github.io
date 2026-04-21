@@ -25,28 +25,41 @@ html, body {
 
 a { color: var(--accent); }
 
-/* ── Fade-in (left → right) ── */
+/* ── Fade-in (left → right) ──
+   Mask is 300% wide with a narrow fade band sitting well outside the
+   container at start/end, so the animation has clean "fully hidden" and
+   "fully revealed" endpoints. Animation is linear so the reveal front
+   moves at a constant rate — essential for fixed character-appearance speed. */
 @keyframes fade-in-lr {
   from {
     -webkit-mask-position: 100% 0;
             mask-position: 100% 0;
-    opacity: 0;
   }
   to {
     -webkit-mask-position: 0 0;
             mask-position: 0 0;
-    opacity: 1;
   }
 }
 
 .fade-in {
-  -webkit-mask-image: linear-gradient(90deg, black 0%, black 35%, transparent 100%);
-          mask-image: linear-gradient(90deg, black 0%, black 35%, transparent 100%);
-  -webkit-mask-size: 200% 100%;
-          mask-size: 200% 100%;
+  -webkit-mask-image: linear-gradient(90deg, black 40%, transparent 60%);
+          mask-image: linear-gradient(90deg, black 40%, transparent 60%);
+  -webkit-mask-size: 300% 100%;
+          mask-size: 300% 100%;
   -webkit-mask-repeat: no-repeat;
           mask-repeat: no-repeat;
-  animation: fade-in-lr 0.9s ease-out forwards;
+  animation: fade-in-lr 0.9s linear forwards;
+}
+
+.fade-line {
+  -webkit-mask-image: linear-gradient(90deg, black 40%, transparent 60%);
+          mask-image: linear-gradient(90deg, black 40%, transparent 60%);
+  -webkit-mask-size: 300% 100%;
+          mask-size: 300% 100%;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  animation: fade-in-lr var(--fade-duration, 0.55s) linear both;
+  animation-delay: var(--fade-delay, 0s);
 }
 
 /* ── Landing / Picker ── */
@@ -149,6 +162,19 @@ a { color: var(--accent); }
 }
 
 /* ── Rendered Markdown ── */
+.output-content > *,
+.output-content li {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.output-content .mdline {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+}
+
+
 .output-content h1 { font-size: 1.8em; font-weight: 400; color: var(--accent); margin: 0.6em 0 0.3em; letter-spacing: 0.02em; }
 .output-content h2 { font-size: 1.4em; font-weight: 400; color: var(--accent); margin: 0.5em 0 0.25em; letter-spacing: 0.02em; }
 .output-content h3 { font-size: 1.15em; font-weight: 500; color: var(--accent); margin: 0.4em 0 0.2em; }

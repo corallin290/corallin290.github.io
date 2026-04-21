@@ -1,6 +1,6 @@
 import * as fs from './filesystem.js';
 import * as commands from './commands/registry.js';
-import { render } from './renderer.js';
+import { render, animateLines } from './renderer.js';
 
 let cwd = '/';
 
@@ -45,7 +45,7 @@ function disableActiveFileButtons() {
 
 function appendOutput({ html, inputLine, items }) {
   const block = document.createElement('div');
-  block.className = 'output-block fade-in';
+  block.className = 'output-block';
 
   if (inputLine !== undefined) {
     const promptSpan = document.createElement('span');
@@ -71,6 +71,7 @@ function appendOutput({ html, inputLine, items }) {
   }
 
   output.appendChild(block);
+  animateLines(block);
   window.scrollTo(0, document.body.scrollHeight);
 }
 
