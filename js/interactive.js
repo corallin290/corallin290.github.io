@@ -55,7 +55,7 @@ function appendOutput({ html, inputLine, items }) {
   if (inputLine !== undefined) {
     const promptSpan = document.createElement('span');
     promptSpan.className = 'prompt-echo';
-    promptSpan.textContent = `${promptEl.textContent}${inputLine}`;
+    promptSpan.textContent = inputLine;
     block.appendChild(promptSpan);
   }
 
@@ -82,10 +82,9 @@ function appendOutput({ html, inputLine, items }) {
 }
 
 async function runPromptIntro() {
-  // Prompt area is visible but utils are hidden and prompt shows the base $
-  promptArea.style.visibility = 'visible';
-  utilButtons.classList.add('hidden');
-
+  // Prompt was dimmed while output animated; swap it out for the base $.
+  // Utils stay hidden (they were faded out on click).
+  promptEl.classList.remove('dimmed');
   promptEl.classList.add('base');
   promptEl.textContent = '$';
   await sleep(450);
@@ -95,10 +94,15 @@ async function runPromptIntro() {
   promptEl.classList.remove('blinking');
   await sleep(400);
 
-  // Swap to the full prompt and fade it in left-to-right.
+  // Swap to the full prompt and fade it in left-to-right. Hide with
+  // visibility until the next frame so the new prompt text never flashes
+  // at full opacity before the mask animation takes effect.
   promptEl.classList.remove('base');
+  promptEl.style.visibility = 'hidden';
   updatePrompt();
   const duration = applyFadeLine(promptEl, promptEl.textContent.length);
+  await new Promise((r) => requestAnimationFrame(r));
+  promptEl.style.visibility = '';
   await sleep(duration * 800);
 
   // Clean up fade-line artifacts so future updatePrompt calls render cleanly.
@@ -109,38 +113,56 @@ async function runPromptIntro() {
   utilButtons.classList.remove('hidden');
 }
 
-async function runCommand(name, args, showInput) {
+function currentPromptText() {
+  const display = cwd === '/' ? '~' : '~' + cwd;
+  return `visitor@corallins-website:${display}$ `;
+}
+
+async function executeStep(name, args, { silent, showInput }) {
+  const cmd = commands.getCommand(name);
+  if (!cmd) return;
+
+  disableActiveFileButtons();
+  promptEl.classList.add('dimmed');
+  utilButtons.classList.add('hidden');
+
+  const inputLine = showInput ? [name, ...args].join(' ') : undefined;
+  const result = await cmd.execute(args, ctx);
+
+  if (result.clear) {
+    output.innerHTML = '';
+    updatePrompt();
+    promptEl.classList.remove('dimmed');
+    utilButtons.classList.remove('hidden');
+    return;
+  }
+
+  const html = result.text ? render(result.text, result.isMarkdown) : '';
+  const outputDuration = appendOutput({ html, inputLine, items: result.items });
+
+  await sleep(outputDuration * 1000);
+
+  if (!silent) {
+    await runPromptIntro();
+  }
+}
+
+async function runCommandSequence(steps) {
   if (commandInFlight) return;
   commandInFlight = true;
   try {
-    const cmd = commands.getCommand(name);
-    if (!cmd) return;
-
-    disableActiveFileButtons();
-
-    // Hide the prompt area synchronously on click — before any await —
-    // so the previous prompt never lingers while the command executes.
-    promptArea.style.visibility = 'hidden';
-
-    const inputLine = showInput ? [name, ...args].join(' ') : undefined;
-    const result = await cmd.execute(args, ctx);
-
-    if (result.clear) {
-      output.innerHTML = '';
-      updatePrompt();
-      promptArea.style.visibility = 'visible';
-      return;
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      const silent = i < steps.length - 1;
+      await executeStep(step.name, step.args, { silent, showInput: true });
     }
-
-    const html = result.text ? render(result.text, result.isMarkdown) : '';
-    const outputDuration = appendOutput({ html, inputLine, items: result.items });
-
-    await sleep(outputDuration * 1000);
-
-    await runPromptIntro();
   } finally {
     commandInFlight = false;
   }
+}
+
+async function runCommand(name, args, showInput) {
+  return runCommandSequence([{ name, args }]);
 }
 
 function renderUtilButtons() {
@@ -148,7 +170,10 @@ function renderUtilButtons() {
 
   const utils = [
     { label: 'ls', action: () => runLs() },
-    { label: 'cd ..', action: async () => { await runCommand('cd', ['..'], true); await runLs(); } },
+    { label: 'cd ..', action: () => runCommandSequence([
+      { name: 'cd', args: ['..'] },
+      { name: 'ls', args: [] },
+    ]) },
     { label: 'pwd', action: () => runCommand('pwd', [], true) },
     { label: 'help', action: () => runCommand('help', [], true) },
     { label: 'clear', action: () => runCommand('clear', [], true) },

@@ -134,6 +134,14 @@ a { color: var(--accent); }
   letter-spacing: 0;
 }
 
+#prompt {
+  transition: opacity 0.5s ease-out;
+}
+
+#prompt.dimmed {
+  opacity: 0.3;
+}
+
 @keyframes prompt-blink {
   0%, 49.999% { opacity: 1; }
   50%, 100% { opacity: 0; }
@@ -167,6 +175,12 @@ a { color: var(--accent); }
   font-style: italic;
   font-weight: 600;
   letter-spacing: 0.05em;
+  animation: echo-fade-in 0.4s ease-out both;
+}
+
+@keyframes echo-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .output-content pre {
@@ -218,10 +232,12 @@ a { color: var(--accent); }
   display: flex;
   flex-wrap: wrap;
   gap: 0.4em;
+  transition: opacity 0.15s ease-out;
 }
 
 #util-buttons.hidden {
-  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .output-content .file-btn,

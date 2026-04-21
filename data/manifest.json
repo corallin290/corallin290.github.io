@@ -4,24 +4,45 @@
   "children": [
     {
       "type": "dir",
-      "name": "projects",
+      "name": "about_me",
       "children": [
         {
           "type": "file",
-          "name": "example.md",
-          "path": "data/projects/example.md"
+          "name": "about_me.md",
+          "path": "data/about_me/about_me.md"
+        },
+        {
+          "type": "file",
+          "name": "contact.md",
+          "path": "data/about_me/contact.md"
+        },
+        {
+          "type": "file",
+          "name": "education.md",
+          "path": "data/about_me/education.md"
+        },
+        {
+          "type": "file",
+          "name": "work_experience.md",
+          "path": "data/about_me/work_experience.md"
         }
       ]
     },
     {
-      "type": "file",
-      "name": "about.md",
-      "path": "data/about.md"
-    },
-    {
-      "type": "file",
-      "name": "education.md",
-      "path": "data/education.md"
+      "type": "dir",
+      "name": "hobbies",
+      "children": [
+        {
+          "type": "file",
+          "name": "games.md",
+          "path": "data/hobbies/games.md"
+        },
+        {
+          "type": "file",
+          "name": "languages.md",
+          "path": "data/hobbies/languages.md"
+        }
+      ]
     }
   ]
 }

@@ -141,11 +141,16 @@ function splitIntoVisualLines(el) {
  * per-visual-line spans. For plain <pre> text, each newline-separated line
  * gets wrapped in its own div. The prompt echo is also treated as a line.
  */
+const ECHO_FADE_SECONDS = 0.4;
+
 export function animateLines(block) {
   const entries = []; // { el, chars }
 
+  // The prompt echo uses a plain opacity fade (via CSS) instead of the
+  // left-to-right mask sweep, so it doesn't read like a prompt being typed
+  // out. Following entries are delayed so they start after the echo fades in.
   const echo = block.querySelector('.prompt-echo');
-  if (echo) entries.push({ el: echo, chars: echo.textContent.length });
+  const echoOffset = echo ? ECHO_FADE_SECONDS : 0;
 
   const content = block.querySelector('.output-content');
   if (content) {
@@ -189,9 +194,9 @@ export function animateLines(block) {
 
     let delay;
     if (i === 0) {
-      // Start first line's reveal at t=0 by pulling the animation back
-      // into negative delay (equal to its pre-roll).
-      delay = -PRE_ROLL * duration;
+      // First line's reveal starts after the echo fade-in (if present),
+      // shifted back by its pre-roll so the reveal lands at echoOffset.
+      delay = echoOffset - PRE_ROLL * duration;
     } else {
       delay = prevDelay + (1 - POST_ROLL) * prevDuration - PRE_ROLL * duration;
     }
@@ -204,7 +209,8 @@ export function animateLines(block) {
     prevDuration = duration;
   }
 
-  // Return the wall-clock time (seconds from now) at which the last line's
-  // visible reveal finishes. Useful for sequencing follow-up animations.
-  return entries.length > 0 ? prevDelay + (1 - POST_ROLL) * prevDuration : 0;
+  // Return the wall-clock time (seconds from now) at which everything
+  // (echo + last line's reveal) has finished animating.
+  const lastRevealEnd = entries.length > 0 ? prevDelay + (1 - POST_ROLL) * prevDuration : 0;
+  return Math.max(echoOffset, lastRevealEnd);
 }
