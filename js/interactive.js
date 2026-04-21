@@ -82,11 +82,12 @@ function appendOutput({ html, inputLine, items }) {
 }
 
 async function runPromptIntro() {
-  // Prompt was dimmed while output animated; swap it out for the base $.
+  // Prompt-area was hidden while output animated; prep the base $ state
+  // before un-hiding so the old prompt text never flashes visible.
   // Utils stay hidden (they were faded out on click).
-  promptEl.classList.remove('dimmed');
   promptEl.classList.add('base');
   promptEl.textContent = '$';
+  promptArea.classList.remove('hidden');
   await sleep(450);
 
   promptEl.classList.add('blinking');
@@ -123,7 +124,7 @@ async function executeStep(name, args, { silent, showInput }) {
   if (!cmd) return;
 
   disableActiveFileButtons();
-  promptEl.classList.add('dimmed');
+  promptArea.classList.add('hidden');
   utilButtons.classList.add('hidden');
 
   const inputLine = showInput ? [name, ...args].join(' ') : undefined;
@@ -132,7 +133,7 @@ async function executeStep(name, args, { silent, showInput }) {
   if (result.clear) {
     output.innerHTML = '';
     updatePrompt();
-    promptEl.classList.remove('dimmed');
+    promptArea.classList.remove('hidden');
     utilButtons.classList.remove('hidden');
     return;
   }

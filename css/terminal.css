@@ -228,6 +228,10 @@ a { color: var(--accent); }
   gap: 0.4em;
 }
 
+#prompt-area.hidden {
+  visibility: hidden;
+}
+
 #util-buttons {
   display: flex;
   flex-wrap: wrap;
