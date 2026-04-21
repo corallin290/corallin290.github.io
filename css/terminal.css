@@ -16,9 +16,11 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--fg);
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 15px;
-  line-height: 1.5;
+  font-family: 'Spectral', Georgia, 'Times New Roman', serif;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.55;
+  letter-spacing: 0.03em;
 }
 
 a { color: var(--accent); }
@@ -60,27 +62,32 @@ a { color: var(--accent); }
 
 .picker h1 {
   color: var(--accent);
-  margin-bottom: 0.5em;
+  font-weight: 400;
+  font-size: 2.2em;
+  letter-spacing: 0.02em;
+  margin-bottom: 0.4em;
 }
 
 .picker p {
-  margin-bottom: 1.5em;
+  margin-bottom: 1.8em;
   color: var(--dim);
+  font-style: italic;
 }
 
 .picker-buttons {
   display: flex;
-  gap: 1em;
+  gap: 1.2em;
   justify-content: center;
 }
 
 .picker-btn {
   display: inline-block;
-  padding: 0.8em 1.6em;
+  padding: 0.6em 1.8em;
   border: 1px solid var(--accent);
   color: var(--accent);
   text-decoration: none;
-  transition: background 0.15s, color 0.15s;
+  letter-spacing: 0.05em;
+  transition: background 0.2s, color 0.2s;
 }
 
 .picker-btn:hover {
@@ -102,6 +109,9 @@ a { color: var(--accent); }
 #prompt {
   color: var(--accent);
   white-space: pre;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.05em;
 }
 
 #input {
@@ -110,6 +120,8 @@ a { color: var(--accent); }
   border: none;
   color: var(--fg);
   font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   outline: none;
   caret-color: var(--accent);
 }
@@ -123,21 +135,28 @@ a { color: var(--accent); }
   color: var(--dim);
   display: block;
   margin-bottom: 0.25em;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.05em;
 }
 
 .output-content pre {
   white-space: pre-wrap;
   word-wrap: break-word;
+  font-family: inherit;
+  font-size: inherit;
+  margin: 0;
 }
 
 /* ── Rendered Markdown ── */
-.output-content h1 { font-size: 1.4em; color: var(--accent); margin: 0.5em 0 0.3em; }
-.output-content h2 { font-size: 1.2em; color: var(--accent); margin: 0.4em 0 0.2em; }
-.output-content h3 { font-size: 1.05em; color: var(--accent); margin: 0.3em 0 0.2em; }
-.output-content p { margin: 0.3em 0; }
-.output-content ul, .output-content ol { padding-left: 1.5em; margin: 0.3em 0; }
-.output-content strong { color: rgb(255, 220, 235); }
-.output-content code { background: var(--btn-bg); padding: 0.1em 0.3em; }
+.output-content h1 { font-size: 1.8em; font-weight: 400; color: var(--accent); margin: 0.6em 0 0.3em; letter-spacing: 0.02em; }
+.output-content h2 { font-size: 1.4em; font-weight: 400; color: var(--accent); margin: 0.5em 0 0.25em; letter-spacing: 0.02em; }
+.output-content h3 { font-size: 1.15em; font-weight: 500; color: var(--accent); margin: 0.4em 0 0.2em; }
+.output-content p { margin: 0.4em 0; }
+.output-content ul, .output-content ol { padding-left: 1.5em; margin: 0.4em 0; }
+.output-content strong { color: rgb(255, 220, 235); font-weight: 500; }
+.output-content em { font-style: italic; }
+.output-content code { background: var(--btn-bg); padding: 0.05em 0.35em; font-family: 'Courier New', monospace; font-size: 0.85em; }
 
 /* ── Interactive Mode ── */
 #interactive {
@@ -167,10 +186,11 @@ a { color: var(--accent); }
   background: var(--btn-bg);
   color: var(--fg);
   border: 1px solid var(--border);
-  padding: 0.5em 1em;
+  padding: 0.35em 1em;
   font: inherit;
+  letter-spacing: 0.02em;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
 .file-btn:hover, .util-btn:hover {
@@ -186,6 +206,7 @@ a { color: var(--accent); }
 .util-btn {
   border-color: var(--dim);
   color: var(--dim);
+  font-style: italic;
 }
 
 .util-btn:hover {
