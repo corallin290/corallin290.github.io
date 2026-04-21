@@ -52,7 +52,17 @@ function disableActiveFileButtons() {
   }
 }
 
-function appendOutput({ html, items }) {
+function makeParentDirButton() {
+  const btn = document.createElement('button');
+  btn.className = 'file-btn dir-btn';
+  btn.textContent = 'parent directory';
+  btn.addEventListener('click', async () => {
+    await runCommand('cd', ['..']);
+  });
+  return btn;
+}
+
+function appendOutput({ html, items, commandName }) {
   const block = document.createElement('div');
   block.className = 'output-block';
 
@@ -60,6 +70,9 @@ function appendOutput({ html, items }) {
   content.className = 'output-content';
 
   if (items) {
+    if (commandName === 'ls' && cwd !== '/') {
+      content.appendChild(makeParentDirButton());
+    }
     for (const item of items) {
       content.appendChild(makeFileButton(item));
     }
@@ -222,7 +235,7 @@ async function runCommandSequence(steps) {
       await sleep(250);
 
       const html = result.text ? render(result.text, result.isMarkdown) : '';
-      const outputDuration = appendOutput({ html, items: result.items });
+      const outputDuration = appendOutput({ html, items: result.items, commandName: step.name });
       await sleep(outputDuration * 1000);
     }
 
@@ -241,10 +254,6 @@ function renderUtilButtons() {
 
   const utils = [
     { label: 'ls', action: () => runCommand('ls', []) },
-    { label: 'cd ..', action: () => runCommandSequence([
-      { name: 'cd', args: ['..'] },
-      { name: 'ls', args: [] },
-    ]) },
     { label: 'pwd', action: () => runCommand('pwd', []) },
     { label: 'help', action: () => runCommand('help', []) },
     { label: 'clear', action: () => runCommand('clear', []) },
