@@ -2,14 +2,14 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #1a1a2e;
-  --fg: #e0e0e0;
-  --accent: #00d4aa;
-  --dim: #888;
-  --border: #444;
-  --btn-bg: #2a2a3e;
-  --btn-hover: #3a3a5e;
-  --dir-color: #5dade2;
+  --bg: rgb(10, 8, 14);
+  --fg: rgb(240, 130, 190);
+  --accent: rgb(255, 175, 215);
+  --dim: rgb(140, 90, 125);
+  --border: rgb(55, 35, 60);
+  --btn-bg: rgb(20, 14, 28);
+  --btn-hover: rgb(40, 25, 52);
+  --dir-color: rgb(200, 160, 230);
 }
 
 html, body {
@@ -22,6 +22,30 @@ html, body {
 }
 
 a { color: var(--accent); }
+
+/* ── Fade-in (left → right) ── */
+@keyframes fade-in-lr {
+  from {
+    -webkit-mask-position: 100% 0;
+            mask-position: 100% 0;
+    opacity: 0;
+  }
+  to {
+    -webkit-mask-position: 0 0;
+            mask-position: 0 0;
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  -webkit-mask-image: linear-gradient(90deg, black 0%, black 35%, transparent 100%);
+          mask-image: linear-gradient(90deg, black 0%, black 35%, transparent 100%);
+  -webkit-mask-size: 200% 100%;
+          mask-size: 200% 100%;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  animation: fade-in-lr 0.9s ease-out forwards;
+}
 
 /* ── Landing / Picker ── */
 .picker-page {
@@ -112,8 +136,8 @@ a { color: var(--accent); }
 .output-content h3 { font-size: 1.05em; color: var(--accent); margin: 0.3em 0 0.2em; }
 .output-content p { margin: 0.3em 0; }
 .output-content ul, .output-content ol { padding-left: 1.5em; margin: 0.3em 0; }
-.output-content strong { color: #fff; }
-.output-content code { background: #2a2a3e; padding: 0.1em 0.3em; }
+.output-content strong { color: rgb(255, 220, 235); }
+.output-content code { background: var(--btn-bg); padding: 0.1em 0.3em; }
 
 /* ── Interactive Mode ── */
 #interactive {

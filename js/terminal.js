@@ -24,7 +24,7 @@ function updatePrompt() {
 
 function appendOutput(html, inputLine) {
   const block = document.createElement('div');
-  block.className = 'output-block';
+  block.className = 'output-block fade-in';
 
   if (inputLine !== undefined) {
     const promptSpan = document.createElement('span');
