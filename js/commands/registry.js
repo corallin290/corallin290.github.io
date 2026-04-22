@@ -25,3 +25,13 @@ export function parse(input) {
   const args = tokens.slice(1);
   return { name, args };
 }
+
+// Split on `&&` (bash-style AND). Each segment is parsed independently.
+// Empty segments (e.g. leading/trailing `&&`, or `&& &&`) are dropped so a
+// stray separator doesn't produce a no-op step.
+export function parseSequence(input) {
+  return input
+    .split(/\s*&&\s*/)
+    .map((seg) => parse(seg))
+    .filter((step) => step.name);
+}

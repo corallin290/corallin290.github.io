@@ -1,4 +1,10 @@
+import * as i18n from './i18n.js';
+
 let root = null;
+
+// Cache paths we've already probed and found missing, so switching locale
+// back and forth doesn't repeatedly 404 for files with no translation.
+const missingLocalizedPaths = new Set();
 
 export async function init() {
   const res = await fetch('data/manifest.json');
@@ -28,6 +34,17 @@ export function list(dirPath, cwd) {
 export async function read(filePath, cwd) {
   const node = resolve(filePath, cwd);
   if (!node || node.type !== 'file') return null;
+
+  const locale = i18n.getLocale();
+  if (locale !== 'en') {
+    const localized = node.path.replace(/\.md$/, `.${locale}.md`);
+    if (localized !== node.path && !missingLocalizedPaths.has(localized)) {
+      const res = await fetch(localized);
+      if (res.ok) return res.text();
+      missingLocalizedPaths.add(localized);
+    }
+  }
+
   const res = await fetch(node.path);
   return res.text();
 }

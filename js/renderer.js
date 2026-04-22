@@ -34,6 +34,13 @@ export function render(text, isMarkdown) {
   return el.outerHTML;
 }
 
+// Swap a content element's innerHTML without re-running the typewriter
+// reveal. Used by the language-switch path: the block is already fully
+// visible, so we just replace its content in place with the new translation.
+export function renderInto(contentEl, text, isMarkdown) {
+  contentEl.innerHTML = render(text, isMarkdown);
+}
+
 /**
  * Splits an element containing only text into per-visual-line wrappers by
  * wrapping each word in a span, measuring their offsetTop, and regrouping

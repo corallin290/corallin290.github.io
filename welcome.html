@@ -11,12 +11,14 @@
 </head>
 <body class="picker-page">
   <div class="picker fade-in">
-    <h1>Welcome</h1>
-    <p>Choose how you'd like to explore:</p>
+    <div class="lang-selector" data-lang-selector-inline></div>
+    <h1 data-i18n="welcome.heading">Welcome</h1>
+    <p data-i18n="welcome.subtitle">Choose how you'd like to explore:</p>
     <div class="picker-buttons">
-      <a href="terminal.html" class="picker-btn">Terminal Mode</a>
-      <a href="interactive.html" class="picker-btn">Interactive Mode</a>
+      <a href="terminal" class="picker-btn" data-i18n="welcome.btn.terminal">Terminal Mode</a>
+      <a href="interactive" class="picker-btn" data-i18n="welcome.btn.interactive">Interactive Mode</a>
     </div>
   </div>
+  <script type="module" src="js/welcome.js"></script>
 </body>
 </html>

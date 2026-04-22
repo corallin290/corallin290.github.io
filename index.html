@@ -463,7 +463,7 @@
       const onFadeDone = (e) => {
         if (e.propertyName !== 'opacity') return;
         nameOverlay.removeEventListener('transitionend', onFadeDone);
-        window.location.href = '/welcome.html';
+        window.location.href = 'welcome';
       };
       nameOverlay.addEventListener('transitionend', onFadeDone);
     };

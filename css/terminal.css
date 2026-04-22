@@ -10,13 +10,23 @@
   --btn-bg: rgb(20, 14, 28);
   --btn-hover: rgb(40, 25, 52);
   --dir-color: rgb(200, 160, 230);
+
+  /* Per-locale font stacks. --font-active is switched by html[lang] below so
+     every rule using var(--font-active) updates live on language change. */
+  --font-en: 'Spectral', Georgia, 'Times New Roman', serif;
+  --font-ja: 'Spectral', Georgia, 'Times New Roman', serif; /* TODO: pick Japanese font */
+  --font-zh: 'Spectral', Georgia, 'Times New Roman', serif; /* TODO: pick Traditional Chinese font */
+  --font-active: var(--font-en);
 }
+
+html[lang="ja"] { --font-active: var(--font-ja); }
+html[lang="zh"] { --font-active: var(--font-zh); }
 
 html, body {
   height: 100%;
   background: var(--bg);
   color: var(--fg);
-  font-family: 'Spectral', Georgia, 'Times New Roman', serif;
+  font-family: var(--font-active);
   font-size: 18px;
   font-weight: 500;
   line-height: 1.55;
@@ -354,4 +364,65 @@ a { color: var(--accent); }
 
 .tooltip.visible {
   opacity: 1;
+}
+
+/* ── Language selector ──
+   Two variants: inline (welcome.html, inside .picker) and fixed top-right
+   chrome (terminal.html / interactive.html). The inline variant participates
+   in the existing .fade-in mask sweep because its ancestor is .fade-in. */
+.lang-selector {
+  display: flex;
+  gap: 0.4em;
+}
+
+.lang-selector[data-lang-selector-fixed] {
+  position: fixed;
+  top: 1em;
+  right: 1em;
+  z-index: 15;
+}
+
+.lang-selector[data-lang-selector-inline] {
+  justify-content: center;
+  margin-bottom: 1.2em;
+}
+
+.lang-btn {
+  background: none;
+  border: none;
+  padding: 0.1em 0.2em;
+  font: inherit;
+  font-size: 1.3em;
+  line-height: 1.2;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity 0.2s;
+}
+
+.lang-btn:hover,
+.lang-btn.active {
+  opacity: 1;
+}
+
+/* ── Language-change glitch ──
+   Brief flicker + jitter applied to <body> when the locale changes. The
+   stepped timing function snaps between keyframes instead of smoothly
+   interpolating, giving a discrete "glitch" feel rather than a soft fade.
+   Duration is tuned to be fast enough not to interrupt navigation. */
+@keyframes lang-glitch {
+  0%, 100% { opacity: 1;    transform: translateX(0);    filter: none; }
+  12%      { opacity: 0.2;  transform: translateX(-2px); filter: blur(1px); }
+  24%      { opacity: 0.85; transform: translateX(2px);  filter: none; }
+  38%      { opacity: 0.35; transform: translateX(-1px); filter: blur(1.5px); }
+  52%      { opacity: 0.9;  transform: translateX(1px);  filter: none; }
+  68%      { opacity: 0.45; transform: translateX(0);    filter: blur(0.8px); }
+  85%      { opacity: 0.95; transform: translateX(0);    filter: none; }
+}
+
+.i18n-glitch {
+  animation: lang-glitch 300ms steps(1, jump-end);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .i18n-glitch { animation: none; }
 }

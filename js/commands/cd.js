@@ -1,6 +1,8 @@
+import * as i18n from '../i18n.js';
+
 export default {
   name: 'cd',
-  description: 'Change directory',
+  get description() { return i18n.get('cmd.cd.description'); },
   usage: 'cd <dir>',
   execute(args, ctx) {
     const target = args[0];
@@ -10,7 +12,7 @@ export default {
     }
 
     if (!ctx.fs.isDir(target, ctx.cwd())) {
-      return { text: `cd: ${target}: No such directory` };
+      return { text: i18n.get('err.cd.noSuchDir', { target }), ok: false };
     }
 
     // Build new absolute path

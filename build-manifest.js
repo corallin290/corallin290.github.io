@@ -10,6 +10,10 @@ function walkDir(dirPath, relativeTo) {
 
   for (const entry of entries) {
     if (entry.name === 'manifest.json') continue;
+    // Translated siblings (foo.ja.md, foo.zh.md) aren't separate logical
+    // files — they're alternate language renderings fetched on demand by
+    // filesystem.read(). Skipping them here keeps ls / manifest clean.
+    if (/\.(ja|zh)\.md$/.test(entry.name)) continue;
 
     const fullPath = path.join(dirPath, entry.name);
     const relPath = path.relative(relativeTo, fullPath);

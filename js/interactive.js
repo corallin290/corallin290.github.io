@@ -1,6 +1,8 @@
 import * as fs from './filesystem.js';
 import * as commands from './commands/registry.js';
-import { render, animateLines, applyFadeLine } from './renderer.js';
+import { render, renderInto, animateLines, applyFadeLine } from './renderer.js';
+import * as i18n from './i18n.js';
+import './lang-selector.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -36,9 +38,15 @@ function makeFileButton(item) {
 
   btn.addEventListener('click', async () => {
     if (item.type === 'dir') {
-      await runCommand('cd', [item.name]);
+      await runCommandSequence(
+        [{ name: 'cd', args: [item.name] }, { name: 'ls', args: [] }],
+        { displayCommand: `cd ${item.name} && ls` },
+      );
     } else {
-      await runCommand('cat', [item.name]);
+      await runCommandSequence(
+        [{ name: 'cat', args: [item.name] }, { name: 'ls', args: [] }],
+        { displayCommand: `cat ${item.name} && ls` },
+      );
     }
   });
 
@@ -56,16 +64,27 @@ function makeParentDirButton() {
   const btn = document.createElement('button');
   btn.className = 'file-btn dir-btn';
   btn.textContent = '..';
-  btn.dataset.tooltip = 'Go to parent directory';
+  btn.dataset.tooltipKey = 'ui.tooltip.parentDir';
+  btn.dataset.tooltip = i18n.get('ui.tooltip.parentDir');
   btn.addEventListener('click', async () => {
-    await runCommand('cd', ['..']);
+    await runCommandSequence(
+      [{ name: 'cd', args: ['..'] }, { name: 'ls', args: [] }],
+      { displayCommand: 'cd .. && ls' },
+    );
   });
   return btn;
 }
 
-function appendOutput({ html, items, commandName }) {
+function appendOutput({ html, items, commandName, meta }) {
   const block = document.createElement('div');
   block.className = 'output-block';
+
+  if (meta) {
+    if (meta.kind) block.dataset.kind = meta.kind;
+    if (meta.cmd) block.dataset.cmd = meta.cmd;
+    if (meta.args) block.dataset.args = JSON.stringify(meta.args);
+    if (meta.cwdSnap !== undefined) block.dataset.cwdSnap = meta.cwdSnap;
+  }
 
   const content = document.createElement('div');
   content.className = 'output-content';
@@ -195,7 +214,7 @@ async function runPromptIntro() {
   utilButtons.classList.remove('hidden');
 }
 
-async function runCommandSequence(steps) {
+async function runCommandSequence(steps, { displayCommand } = {}) {
   if (commandInFlight) return;
   commandInFlight = true;
   try {
@@ -204,15 +223,19 @@ async function runCommandSequence(steps) {
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
       const promptText = currentPromptText();
-      const commandText = [step.name, ...step.args].join(' ');
       const isFirst = i === 0;
 
       if (isFirst) {
         // User-initiated: animate the live prompt-area into its committed state.
+        // When a displayCommand is supplied, show the full compound (e.g.
+        // `cat foo && ls`) as the prompt text so chained steps don't need
+        // their own echo — matching bash, which prints one prompt per line.
+        const commandText = displayCommand ?? [step.name, ...step.args].join(' ');
         await animateLivePromptCommit(promptText, commandText);
-      } else {
-        // Chained step: the live prompt-area is already hidden, so just
-        // drop a committed echo into the output directly.
+      } else if (!displayCommand) {
+        // Chained step without a compound displayCommand: the live prompt-area
+        // is already hidden, so drop a committed echo into the output directly.
+        const commandText = [step.name, ...step.args].join(' ');
         output.appendChild(createEchoDiv(promptText, commandText));
         window.scrollTo(0, document.body.scrollHeight);
       }
@@ -220,6 +243,7 @@ async function runCommandSequence(steps) {
       const cmd = commands.getCommand(step.name);
       if (!cmd) continue;
 
+      const cwdSnap = cwd;
       const result = await cmd.execute(step.args, ctx);
 
       if (result.clear) {
@@ -233,11 +257,23 @@ async function runCommandSequence(steps) {
       }
 
       // Small pause so the committed echo settles before output slides in.
-      await sleep(250);
+      // Silent chained steps (under a compound displayCommand) rendered no
+      // echo, so there's nothing to settle — skip the pause.
+      if (isFirst || !displayCommand) {
+        await sleep(250);
+      }
 
       const html = result.text ? render(result.text, result.isMarkdown) : '';
-      const outputDuration = appendOutput({ html, items: result.items, commandName: step.name });
+      const kind = result.items ? 'buttons' : (result.isMarkdown ? 'markdown' : 'text');
+      const meta = (result.text || result.items)
+        ? { cmd: step.name, args: step.args, kind, cwdSnap }
+        : null;
+      const outputDuration = appendOutput({ html, items: result.items, commandName: step.name, meta });
       await sleep(outputDuration * 1000);
+
+      // Short-circuit on failure so a chained sequence (e.g. `cd x && ls`)
+      // skips the rest when an earlier step errors out.
+      if (result.ok === false) break;
     }
 
     await runPromptIntro();
@@ -264,6 +300,7 @@ function renderUtilButtons() {
     const btn = document.createElement('button');
     btn.className = 'util-btn';
     btn.textContent = u.label;
+    btn.dataset.cmdName = u.name;
     const cmd = commands.getCommand(u.name);
     if (cmd) btn.dataset.tooltip = cmd.description;
     btn.addEventListener('click', u.action);
@@ -324,6 +361,59 @@ document.addEventListener('pointerover', (e) => {
 document.addEventListener('pointerout', (e) => {
   const target = e.target.closest('[data-tooltip]');
   if (target && !target.contains(e.relatedTarget)) hideTooltip();
+});
+
+// ── Language change ──
+// Refresh tooltips on every button that sources its text from i18n, and
+// re-run stored output-producing commands so their .output-content picks up
+// the new-locale strings (file contents via filesystem fallback, error
+// messages via i18n.get in the command modules).
+function refreshTooltips() {
+  // Util buttons read from their referenced command's description getter.
+  for (const btn of utilButtons.querySelectorAll('[data-cmd-name]')) {
+    const cmd = commands.getCommand(btn.dataset.cmdName);
+    if (cmd) btn.dataset.tooltip = cmd.description;
+  }
+  // Parent-dir buttons (and any future key-based tooltip) resolve via i18n.
+  for (const btn of document.querySelectorAll('[data-tooltip-key]')) {
+    btn.dataset.tooltip = i18n.get(btn.dataset.tooltipKey);
+  }
+}
+
+async function rerenderBlock(block) {
+  const content = block.querySelector('.output-content');
+  if (!content) return;
+
+  const kind = block.dataset.kind;
+  // Buttons blocks are file/dir listings — filenames don't translate, and
+  // their embedded parent-dir tooltip is refreshed via refreshTooltips.
+  if (kind === 'buttons') return;
+
+  const cmdName = block.dataset.cmd;
+  const args = block.dataset.args ? JSON.parse(block.dataset.args) : [];
+
+  const cmd = commands.getCommand(cmdName);
+  if (!cmd) return;
+
+  const snap = block.dataset.cwdSnap ?? cwd;
+  const fakeCtx = {
+    fs,
+    cwd: () => snap,
+    setCwd: () => {},
+    commands,
+  };
+  const result = await cmd.execute(args, fakeCtx);
+  if (result.clear || !result.text) return;
+  renderInto(content, result.text, result.isMarkdown);
+}
+
+document.addEventListener('languagechange', async () => {
+  hideTooltip();
+  refreshTooltips();
+  const blocks = output.querySelectorAll('.output-block[data-kind]');
+  for (const block of blocks) {
+    await rerenderBlock(block);
+  }
 });
 
 export async function init() {
