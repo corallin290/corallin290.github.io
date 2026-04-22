@@ -366,6 +366,14 @@ a { color: var(--accent); }
   opacity: 1;
 }
 
+/* A long-press on mobile otherwise selects the button's text and shows the
+   native text-selection callout, which fights the custom tooltip peek. */
+[data-tooltip] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 /* ── Language selector ──
    Two variants: inline (welcome.html, inside .picker) and fixed top-right
    chrome (terminal.html / interactive.html). The inline variant participates

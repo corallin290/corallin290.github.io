@@ -309,14 +309,24 @@ function renderUtilButtons() {
 }
 
 // ── Tooltips ──
-// Single shared tooltip element, positioned on hover relative to the viewport
-// so it can clamp/flip when an anchor sits near a window edge.
+// Single shared tooltip element, positioned relative to the viewport so it
+// can clamp/flip when an anchor sits near a window edge. Reachable through
+// three input modalities:
+//   • Mouse/trackpad — pointerover/pointerout, gated on pointerType so that
+//     touch-synthesised pointer events don't flash the tooltip in the frame
+//     before the tap's click fires.
+//   • Keyboard — focusin/focusout, Escape to dismiss (WAI-ARIA tooltip).
+//   • Touch/pen — long-press (~500ms) peeks the tooltip and suppresses the
+//     would-be click; a short tap runs the underlying action as usual.
 let tooltipEl = null;
+let currentTarget = null;
 
 function ensureTooltip() {
   if (tooltipEl) return tooltipEl;
   tooltipEl = document.createElement('div');
   tooltipEl.className = 'tooltip';
+  tooltipEl.id = 'tooltip';
+  tooltipEl.setAttribute('role', 'tooltip');
   document.body.appendChild(tooltipEl);
   return tooltipEl;
 }
@@ -346,22 +356,108 @@ function showTooltip(target) {
 
   el.style.left = `${left}px`;
   el.style.top = `${top}px`;
+
+  if (currentTarget && currentTarget !== target) {
+    currentTarget.removeAttribute('aria-describedby');
+  }
+  target.setAttribute('aria-describedby', 'tooltip');
+  currentTarget = target;
 }
 
 function hideTooltip() {
   if (tooltipEl) tooltipEl.classList.remove('visible');
+  if (currentTarget) {
+    currentTarget.removeAttribute('aria-describedby');
+    currentTarget = null;
+  }
+  touchTooltipShown = false;
 }
 
-// Delegated listeners: works for buttons created at any time (util buttons,
-// file buttons, the parent-dir button) without per-button wiring.
+// Hover capability can change mid-session (e.g. a mouse is plugged into a
+// touchscreen laptop). Clear any stale tooltip when the environment flips.
+window.matchMedia('(hover: hover) and (pointer: fine)')
+  .addEventListener('change', hideTooltip);
+
+// ── Mouse path ──
+// Delegated: works for buttons created at any time without per-button wiring.
 document.addEventListener('pointerover', (e) => {
+  if (e.pointerType !== 'mouse') return;
   const target = e.target.closest('[data-tooltip]');
   if (target) showTooltip(target);
 });
 document.addEventListener('pointerout', (e) => {
+  if (e.pointerType !== 'mouse') return;
   const target = e.target.closest('[data-tooltip]');
   if (target && !target.contains(e.relatedTarget)) hideTooltip();
 });
+
+// ── Keyboard path ──
+document.addEventListener('focusin', (e) => {
+  const target = e.target.closest('[data-tooltip]');
+  if (target) showTooltip(target);
+});
+document.addEventListener('focusout', (e) => {
+  const target = e.target.closest('[data-tooltip]');
+  if (!target) return;
+  // If focus is moving to another tooltipped element, the subsequent focusin
+  // will reposition; skipping the hide here avoids a fade-out/fade-in flicker.
+  const next = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('[data-tooltip]');
+  if (!next) hideTooltip();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && currentTarget) hideTooltip();
+});
+
+// ── Touch path (long-press) ──
+const LONG_PRESS_MS = 500;
+const MOVE_CANCEL_PX = 10;
+let pressTimer = null;
+let pressStart = null;
+let touchTooltipShown = false;
+
+function clearPressTimer() {
+  if (pressTimer !== null) {
+    clearTimeout(pressTimer);
+    pressTimer = null;
+  }
+  pressStart = null;
+}
+
+// After a successful long-press, the touch gesture still synthesises a click
+// on release. Swallow exactly one click in the capture phase so neither the
+// button's registered handler nor any delegated click listener fires.
+function suppressNextClick() {
+  document.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+  }, { capture: true, once: true });
+}
+
+document.addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+  // Any new tap dismisses a sticky touch tooltip before doing anything else.
+  if (touchTooltipShown) hideTooltip();
+
+  const target = e.target.closest('[data-tooltip]');
+  if (!target) return;
+
+  pressStart = { x: e.clientX, y: e.clientY };
+  pressTimer = setTimeout(() => {
+    pressTimer = null;
+    pressStart = null;
+    showTooltip(target);
+    touchTooltipShown = true;
+    suppressNextClick();
+  }, LONG_PRESS_MS);
+});
+document.addEventListener('pointermove', (e) => {
+  if (!pressStart) return;
+  const dx = e.clientX - pressStart.x;
+  const dy = e.clientY - pressStart.y;
+  if (Math.hypot(dx, dy) > MOVE_CANCEL_PX) clearPressTimer();
+});
+document.addEventListener('pointerup', clearPressTimer);
+document.addEventListener('pointercancel', clearPressTimer);
 
 // ── Language change ──
 // Refresh tooltips on every button that sources its text from i18n, and

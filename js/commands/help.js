@@ -9,6 +9,13 @@ export default {
     for (const cmd of ctx.commands.getAll()) {
       lines.push(`  ${cmd.name.padEnd(10)} ${cmd.description}`);
     }
-    return { text: i18n.get('help.header') + '\n' + lines.join('\n') };
+    // Show the hint wherever tooltip triggers exist (interactive mode).
+    // Terminal mode has no [data-tooltip] elements, so the hint is skipped.
+    const parts = [];
+    const hasTooltips = typeof document !== 'undefined'
+      && !!document.querySelector('[data-tooltip]');
+    if (hasTooltips) parts.push(i18n.get('help.touchHint'), '');
+    parts.push(i18n.get('help.header'), ...lines);
+    return { text: parts.join('\n') };
   },
 };

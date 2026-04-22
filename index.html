@@ -49,7 +49,7 @@
     box-shadow: inset 0 0 calc(var(--unit) * 0.28) rgba(240, 130, 190, 0.14);
     opacity: 0;
     transition: opacity 0s;
-    pointer-events: auto;
+    pointer-events: none;
     cursor: pointer;
     overflow: hidden;
     z-index: 10;
@@ -57,6 +57,7 @@
   .name-overlay.visible {
     opacity: 1;
     transition: opacity 0.5s ease-out;
+    pointer-events: auto;
   }
   .fill {
     position: absolute;
@@ -288,6 +289,7 @@
   ];
 
   let renderStartTime = 0;
+  let ready = false;
   const MIN_CLICK_DELAY = 500;
 
   function render(retryCount = 0, skipGlitch = false) {
@@ -434,7 +436,10 @@
             canvas.offsetHeight;
             canvas.style.opacity = '1';
             // Name starts after attractor is fully in (and glitch is long gone)
-            setTimeout(() => nameOverlay.classList.add('visible'), 800);
+            setTimeout(() => {
+              nameOverlay.classList.add('visible');
+              ready = true;
+            }, 800);
           }, 1500);
         }, remaining);
       }
@@ -444,7 +449,10 @@
   }
 
   render();
-  canvas.addEventListener('click', () => render(0, true));
+  canvas.addEventListener('click', () => {
+    if (!ready) return;
+    render(0, true);
+  });
 
   nameOverlay.addEventListener('click', () => {
     // Fade attractor out instantly (matches re-render behavior)
