@@ -1,22 +1,481 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap">
-  <link rel="stylesheet" href="css/terminal.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>corallin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500&display=swap" rel="stylesheet">
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: #0f0e0c;
+    cursor: pointer;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+  }
+  #glitch {
+    position: fixed;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 1;
+    transition: opacity 2s ease-out;
+  }
+  #glitch.hidden {
+    opacity: 0;
+  }
+  .name-overlay {
+    --unit: clamp(2.5rem, 6.5vmin, 4.5rem);
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(3, 2, 5);
+    padding: 1.5em 1.2em;
+    border: 1px solid rgba(240, 130, 190, 0.35);
+    box-shadow: inset 0 0 calc(var(--unit) * 0.28) rgba(240, 130, 190, 0.14);
+    opacity: 0;
+    transition: opacity 0s;
+    pointer-events: auto;
+    cursor: pointer;
+    overflow: hidden;
+    z-index: 10;
+  }
+  .name-overlay.visible {
+    opacity: 1;
+    transition: opacity 0.5s ease-out;
+  }
+  .fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 0;
+    background: rgb(240, 130, 190);
+    pointer-events: none;
+  }
+  .name-overlay.loading .fill {
+    height: 100%;
+    transition: height 2.5s ease-in;
+  }
+  .name {
+    position: relative;
+    z-index: 1;
+    writing-mode: vertical-rl;
+    font-family: 'Noto Serif TC', serif;
+    color: #fff;
+    font-size: var(--unit);
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    line-height: 1;
+    text-shadow:
+      0 0 0.14em rgba(240, 130, 190, 0.7),
+      0 0 0.3em rgba(100, 220, 215, 0.45),
+      0 0 0.4em rgba(240, 130, 190, 0.45),
+      0 0 0.6em rgba(100, 220, 215, 0.3),
+      0 0 0.85em rgba(240, 130, 190, 0.25),
+      0 0 1.4em rgba(240, 130, 190, 0.12);
+  }
+</style>
 </head>
-<body class="picker-page">
-  <div class="picker fade-in">
-    <h1>Welcome</h1>
-    <p>Choose how you'd like to explore:</p>
-    <div class="picker-buttons">
-      <a href="terminal.html" class="picker-btn">Terminal Mode</a>
-      <a href="interactive.html" class="picker-btn">Interactive Mode</a>
-    </div>
-  </div>
+<body>
+<canvas id="c"></canvas>
+<canvas id="glitch"></canvas>
+<div class="name-overlay"><div class="fill"></div><div class="name">劉兆嵐</div></div>
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const nameOverlay = document.querySelector('.name-overlay');
+  const glitchCanvas = document.getElementById('glitch');
+  const gctx = glitchCanvas.getContext('2d');
+
+  const phrases = [
+    '今が過ぎて行くこの瞬間',
+    '思い出が生り',
+    '思い出',
+    '連なる実へと',
+    '連なる実',
+    '切り絵に夢を膨らませ願い',
+    '切り絵',
+    '夢を膨らませ',
+    '笑顔は無垢',
+    '変わって行くこの未来へ繋ぐ',
+    '変わって行く',
+    'この未来',
+    '募る過去',
+    '君は何を見る',
+    '何を見る',
+    '望む意思の果てに',
+    '望む意思',
+    '果てに',
+    '大地を蹴り進め',
+    '大地を蹴り',
+    '蹴り進め',
+    '粉夢で満たす',
+    '粉夢',
+    'わずかな命',
+    'この瞬間に散らす',
+    'この瞬間',
+    '散らす',
+    '導くのは誰でもない',
+    '導くのは',
+    '誰でもない',
+    '棘の雨降り続く先へ',
+    '棘の雨',
+    '降り続く',
+    'その眼を向け',
+    'その眼',
+    'その先に誰が居る?',
+    'その先に',
+    '誰が居る'
+  ];
+
+  const MIN_GLITCH_DURATION = 3000;
+  let activeChars = [];
+  let glitchTimer = null;
+  let glitchStartTime = 0;
+
+  function startGlitch() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    glitchCanvas.width = w;
+    glitchCanvas.height = h;
+    glitchCanvas.classList.remove('hidden');
+    gctx.textAlign = 'center';
+    gctx.textBaseline = 'middle';
+
+    if (glitchTimer) return;
+
+    glitchStartTime = Date.now();
+    const cellSize = 30;
+    const cols = Math.floor(w / cellSize);
+    const rows = Math.floor(h / cellSize);
+    const targetCount = Math.floor(cols * rows * 0.04);
+
+    function tick() {
+      // Age existing characters, remove expired
+      activeChars = activeChars.filter(c => --c.ttl > 0);
+
+      // Occasional full-phrase reveal (moment of clarity)
+      if (Math.random() < 0.06) {
+        const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+        const col = Math.floor(Math.random() * cols);
+        const maxStartRow = Math.max(0, rows - phrase.length);
+        const startRow = Math.floor(Math.random() * (maxStartRow + 1));
+
+        const size = 22 + Math.floor(Math.random() * 3); // 22–24 (near max)
+        const coreTtl = 12 + Math.floor(Math.random() * 4); // longer than spotlight spawns
+
+        for (let i = 0; i < phrase.length; i++) {
+          const row = startRow + i;
+          if (row < 0 || row >= rows) continue;
+          // Fade at the ends: first and last chars slightly dimmer
+          const endDistance = Math.min(i, phrase.length - 1 - i);
+          const maxOpacity = endDistance === 0 ? 0.55
+                           : endDistance === 1 ? 0.85
+                           : 1;
+          activeChars.push({
+            x: col * cellSize + cellSize / 2,
+            y: row * cellSize + cellSize / 2,
+            ch: phrase[i],
+            ttl: coreTtl,
+            maxTtl: coreTtl,
+            size: size,
+            maxOpacity: maxOpacity
+          });
+        }
+      }
+
+      // Spawn new characters to maintain density
+      while (activeChars.length < targetCount) {
+        // Pick a phrase and a focus character within it
+        const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+        const focusIdx = Math.floor(Math.random() * phrase.length);
+
+        // Determine how many chars on each side of focus to reveal (taper)
+        const sideSpan = 1 + Math.floor(Math.random() * 2); // 1 or 2
+
+        // Layout: focus char centered vertically, neighbors above/below
+        const col = Math.floor(Math.random() * cols);
+        const focusRow = sideSpan + Math.floor(Math.random() * Math.max(1, rows - 2 * sideSpan));
+
+        const size = 18 + Math.floor(Math.random() * 6);
+        const focusTtl = 5 + Math.floor(Math.random() * 4);
+
+        // Larger text casts a broader spotlight: neighbors stay more visible
+        // size 18 → [1.0, 0.35, 0.10];  size 23 → [1.0, 0.55, 0.25]
+        const sizeFactor = (size - 18) / 5; // 0..1+
+        const opacityByDistance = [
+          1,
+          0.35 + 0.20 * sizeFactor,
+          0.10 + 0.15 * sizeFactor
+        ];
+
+        for (let i = Math.max(0, focusIdx - sideSpan);
+             i <= Math.min(phrase.length - 1, focusIdx + sideSpan);
+             i++) {
+          const distance = Math.abs(i - focusIdx);
+          const row = focusRow + (i - focusIdx);
+          if (row < 0 || row >= rows) continue;
+          // Neighbors linger ~1.5× longer than the focus character (ghosting)
+          const ttl = distance === 0
+            ? focusTtl
+            : focusTtl + 2 + Math.floor(Math.random() * 3);
+          activeChars.push({
+            x: col * cellSize + cellSize / 2,
+            y: row * cellSize + cellSize / 2,
+            ch: phrase[i],
+            ttl: ttl,
+            maxTtl: ttl,
+            size: size,
+            maxOpacity: opacityByDistance[distance] || 0.08
+          });
+        }
+      }
+
+      // Render
+      gctx.clearRect(0, 0, w, h);
+      for (const c of activeChars) {
+        // Spawn at maxOpacity, fade linearly as TTL decreases
+        const alpha = c.maxOpacity * (c.ttl / c.maxTtl);
+        gctx.font = `${c.size}px system-ui, sans-serif`;
+        gctx.fillStyle = `rgba(240, 130, 190, ${alpha})`;
+        gctx.fillText(c.ch, c.x, c.y);
+      }
+
+      // Accelerating tempo: 140ms → 55ms over 1.2s, quadratic ease-in
+      const elapsed = Date.now() - glitchStartTime;
+      const t = Math.min(elapsed / 1200, 1);
+      const delay = 140 - (t * t) * 85;
+      glitchTimer = setTimeout(tick, delay);
+    }
+
+    tick();
+  }
+
+  function stopGlitch() {
+    if (!glitchTimer) return;
+    glitchCanvas.classList.add('hidden');
+    const timerRef = glitchTimer;
+    setTimeout(() => {
+      // Only clean up if this is still the timer we're trying to stop,
+      // and we haven't been un-hidden by a new render
+      if (glitchTimer === timerRef && glitchCanvas.classList.contains('hidden')) {
+        clearTimeout(glitchTimer);
+        glitchTimer = null;
+        gctx.clearRect(0, 0, glitchCanvas.width, glitchCanvas.height);
+        activeChars = [];
+      }
+    }, 2100);
+  }
+
+  const palettes = [
+    { bg: [10, 8, 14], fg: [240, 130, 190] },
+  ];
+
+  let renderStartTime = 0;
+  const MIN_CLICK_DELAY = 500;
+
+  function render(retryCount = 0, skipGlitch = false) {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    canvas.width = w;
+    canvas.height = h;
+
+    if (retryCount === 0) renderStartTime = Date.now();
+
+    const palette = palettes[Math.floor(Math.random() * palettes.length)];
+    const [bgR, bgG, bgB] = palette.bg;
+    const [fgR, fgG, fgB] = palette.fg;
+
+    document.body.style.background = `rgb(${bgR},${bgG},${bgB})`;
+    ctx.fillStyle = `rgb(${bgR},${bgG},${bgB})`;
+    ctx.fillRect(0, 0, w, h);
+
+    canvas.style.transition = 'opacity 0s';
+    canvas.style.opacity = '0';
+    canvas.offsetHeight;
+
+    if (!skipGlitch) {
+      nameOverlay.classList.remove('visible');
+      nameOverlay.offsetHeight;
+      startGlitch();
+    }
+
+    // Defer heavy work one frame so the background paints first
+    requestAnimationFrame(() => compute(w, h, bgR, bgG, bgB, fgR, fgG, fgB, retryCount, skipGlitch));
+  }
+
+  function compute(w, h, bgR, bgG, bgB, fgR, fgG, fgB, retryCount, skipGlitch) {
+    const a = -1.8 + Math.random() * 3.6;
+    const b = -1.8 + Math.random() * 3.6;
+    const c = -1.8 + Math.random() * 3.6;
+    const d = -1.8 + Math.random() * 3.6;
+
+    let x = 0.1, y = 0.1;
+
+    // Burn-in: let the orbit settle onto the attractor
+    for (let i = 0; i < 200; i++) {
+      const nx = Math.sin(a * y) + c * Math.cos(a * x);
+      const ny = Math.sin(b * x) + d * Math.cos(b * y);
+      x = nx; y = ny;
+    }
+
+    // Probe bounds so we auto-fit any attractor to the viewport
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (let i = 0; i < 20000; i++) {
+      const nx = Math.sin(a * y) + c * Math.cos(a * x);
+      const ny = Math.sin(b * x) + d * Math.cos(b * y);
+      x = nx; y = ny;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+
+    const rangeX = (maxX - minX) || 1;
+    const rangeY = (maxY - minY) || 1;
+    const scale = Math.min(w / rangeX, h / rangeY) * 0.88;
+    const offX = w / 2 - (minX + rangeX / 2) * scale;
+    const offY = h / 2 - (minY + rangeY / 2) * scale;
+
+    // Density accumulation - chunked so glitch animation can tick between chunks
+    const density = new Uint32Array(w * h);
+    const iters = Math.min(2500000, Math.max(800000, (w * h * 1.5) | 0));
+    let maxDensity = 0;
+    let pixelsCovered = 0;
+    let iterIdx = 0;
+    const chunkSize = 300000;
+
+    function chunk() {
+      const end = Math.min(iterIdx + chunkSize, iters);
+      for (; iterIdx < end; iterIdx++) {
+        const nx = Math.sin(a * y) + c * Math.cos(a * x);
+        const ny = Math.sin(b * x) + d * Math.cos(b * y);
+        x = nx; y = ny;
+
+        const px = (x * scale + offX) | 0;
+        const py = (y * scale + offY) | 0;
+
+        if (px >= 0 && px < w && py >= 0 && py < h) {
+          const idx = py * w + px;
+          if (density[idx] === 0) pixelsCovered++;
+          const v = ++density[idx];
+          if (v > maxDensity) maxDensity = v;
+        }
+      }
+      if (iterIdx < iters) {
+        setTimeout(chunk, 0);
+      } else {
+        finish();
+      }
+    }
+
+    function finish() {
+      // Retry if orbit collapsed to a point, or coverage is too low (loop/line attractor)
+      const coverage = pixelsCovered / (w * h);
+      if ((maxDensity > iters / 10 || coverage < 0.04) && retryCount < 30) {
+        render(retryCount + 1, skipGlitch);
+        return;
+      }
+
+      const imageData = ctx.createImageData(w, h);
+      const data = imageData.data;
+      const logMax = Math.log(maxDensity + 1);
+      const gamma = 0.6;
+
+      const dR = fgR - bgR, dG = fgG - bgG, dB = fgB - bgB;
+
+      for (let i = 0; i < w * h; i++) {
+        const di = density[i];
+        const t = di > 0 ? Math.pow(Math.log(di + 1) / logMax, gamma) : 0;
+        const j = i * 4;
+        data[j]     = bgR + dR * t;
+        data[j + 1] = bgG + dG * t;
+        data[j + 2] = bgB + dB * t;
+        data[j + 3] = 255;
+      }
+
+      if (skipGlitch) {
+        // Quick reveal for click-driven re-rolls: attractor only, name stays in place
+        // Wait out any remaining minimum delay so fast and slow renders feel consistent
+        const elapsed = Date.now() - renderStartTime;
+        const remaining = Math.max(0, MIN_CLICK_DELAY - elapsed);
+        setTimeout(() => {
+          ctx.putImageData(imageData, 0, 0);
+          canvas.style.transition = 'opacity 0.6s ease-in-out';
+          canvas.offsetHeight;
+          canvas.style.opacity = '1';
+        }, remaining);
+      } else {
+        // Full cinematic reveal for first load
+        const elapsed = Date.now() - glitchStartTime;
+        const remaining = Math.max(0, MIN_GLITCH_DURATION - elapsed);
+        setTimeout(() => {
+          stopGlitch();
+          // Delay attractor so it only overlaps the tail end of the glitch fade
+          setTimeout(() => {
+            ctx.putImageData(imageData, 0, 0);
+            canvas.style.transition = 'opacity 0.8s ease-in-out';
+            canvas.offsetHeight;
+            canvas.style.opacity = '1';
+            // Name starts after attractor is fully in (and glitch is long gone)
+            setTimeout(() => nameOverlay.classList.add('visible'), 800);
+          }, 1500);
+        }, remaining);
+      }
+    }
+
+    chunk();
+  }
+
+  render();
+  canvas.addEventListener('click', () => render(0, true));
+
+  nameOverlay.addEventListener('click', () => {
+    // Fade attractor out instantly (matches re-render behavior)
+    canvas.style.transition = 'opacity 0s';
+    canvas.style.opacity = '0';
+    // Start the fill animation
+    nameOverlay.classList.add('loading');
+
+    const fillEl = nameOverlay.querySelector('.fill');
+    const onFillDone = (e) => {
+      if (e.propertyName !== 'height') return;
+      fillEl.removeEventListener('transitionend', onFillDone);
+      // Fade the whole box out
+      nameOverlay.style.transition = 'opacity 0.5s ease-out';
+      nameOverlay.style.opacity = '0';
+      const onFadeDone = (e) => {
+        if (e.propertyName !== 'opacity') return;
+        nameOverlay.removeEventListener('transitionend', onFadeDone);
+        window.location.href = '/welcome.html';
+      };
+      nameOverlay.addEventListener('transitionend', onFadeDone);
+    };
+    fillEl.addEventListener('transitionend', onFillDone);
+  });
+
+  let rt;
+  window.addEventListener('resize', () => {
+    clearTimeout(rt);
+    rt = setTimeout(() => render(0, true), 150);
+  });
+})();
+</script>
 </body>
 </html>
