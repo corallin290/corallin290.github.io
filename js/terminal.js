@@ -72,7 +72,7 @@ async function executeStep(step, echoLine) {
     return { ok: true, cleared: true };
   }
 
-  const html = result.text ? render(result.text, result.isMarkdown) : '';
+  const html = result.text ? render(result.text, result.isMarkdown, result.isHtml) : '';
   const meta = result.text
     ? { cmd: name, args, kind: result.isMarkdown ? 'markdown' : 'text', cwdSnap }
     : undefined;
@@ -164,7 +164,7 @@ async function rerenderBlock(block) {
   };
   const result = await cmd.execute(args, fakeCtx);
   if (result.clear || !result.text) return;
-  renderInto(content, result.text, result.isMarkdown);
+  renderInto(content, result.text, result.isMarkdown, result.isHtml);
 }
 
 document.addEventListener('languagechange', async () => {

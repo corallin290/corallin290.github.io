@@ -25,10 +25,11 @@ export function applyFadeLine(el, chars) {
   return duration;
 }
 
-export function render(text, isMarkdown) {
+export function render(text, isMarkdown, isHtml) {
   if (isMarkdown && typeof marked !== 'undefined') {
     return marked.parse(text);
   }
+  if (isHtml) return text;
   const el = document.createElement('pre');
   el.textContent = text;
   return el.outerHTML;
@@ -37,8 +38,8 @@ export function render(text, isMarkdown) {
 // Swap a content element's innerHTML without re-running the typewriter
 // reveal. Used by the language-switch path: the block is already fully
 // visible, so we just replace its content in place with the new translation.
-export function renderInto(contentEl, text, isMarkdown) {
-  contentEl.innerHTML = render(text, isMarkdown);
+export function renderInto(contentEl, text, isMarkdown, isHtml) {
+  contentEl.innerHTML = render(text, isMarkdown, isHtml);
 }
 
 /**

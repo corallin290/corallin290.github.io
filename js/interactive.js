@@ -263,7 +263,7 @@ async function runCommandSequence(steps, { displayCommand } = {}) {
         await sleep(250);
       }
 
-      const html = result.text ? render(result.text, result.isMarkdown) : '';
+      const html = result.text ? render(result.text, result.isMarkdown, result.isHtml) : '';
       const kind = result.items ? 'buttons' : (result.isMarkdown ? 'markdown' : 'text');
       const meta = (result.text || result.items)
         ? { cmd: step.name, args: step.args, kind, cwdSnap }
@@ -500,7 +500,7 @@ async function rerenderBlock(block) {
   };
   const result = await cmd.execute(args, fakeCtx);
   if (result.clear || !result.text) return;
-  renderInto(content, result.text, result.isMarkdown);
+  renderInto(content, result.text, result.isMarkdown, result.isHtml);
 }
 
 document.addEventListener('languagechange', async () => {

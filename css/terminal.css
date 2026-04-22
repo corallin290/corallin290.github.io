@@ -201,6 +201,18 @@ a { color: var(--accent); }
   margin: 0;
 }
 
+.output-content .help-row {
+  display: flex;
+  gap: 1em;
+}
+.output-content .help-cmd {
+  flex: 0 0 5em;
+  color: var(--accent);
+}
+.output-content .help-header {
+  margin-bottom: 0.4em;
+}
+
 /* ── Rendered Markdown ── */
 .output-content > *,
 .output-content li {
