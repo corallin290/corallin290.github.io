@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>404 — corallin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;500&family=Noto+Serif+TC:wght@500&display=swap" rel="stylesheet">
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: #0f0e0c;
+    color: rgba(240, 130, 190, 0.85);
+    font-family: ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas, monospace;
+    cursor: pointer;
+  }
+
+  canvas {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  #attractor { z-index: 1; opacity: 0; transition: opacity 2.5s ease-out; }
+  #attractor.visible { opacity: 1; }
+  #particle { z-index: 2; }
+  #glitch { z-index: 3; pointer-events: none; }
+
+  .message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 1.8s ease-out 0.6s;
+  }
+  .message.visible { opacity: 1; }
+
+  .code {
+    font-family: ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas, monospace;
+    font-size: clamp(3.5rem, 11vmin, 6.5rem);
+    font-weight: 300;
+    letter-spacing: 0.22em;
+    color: #fff;
+    line-height: 1;
+    text-shadow:
+      0 0 0.12em rgba(240, 130, 190, 0.75),
+      0 0 0.28em rgba(100, 220, 215, 0.4),
+      0 0 0.45em rgba(240, 130, 190, 0.45),
+      0 0 0.75em rgba(240, 130, 190, 0.25),
+      0 0 1.4em rgba(240, 130, 190, 0.12);
+  }
+
+  .divider {
+    width: 1px;
+    height: clamp(2rem, 5vmin, 3rem);
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgba(240, 130, 190, 0.5),
+      transparent
+    );
+    margin: 1.4em auto;
+  }
+
+  .subtitle {
+    font-family: 'Noto Serif JP', 'Noto Serif TC', serif;
+    font-size: clamp(0.95rem, 2.2vmin, 1.35rem);
+    letter-spacing: 0.42em;
+    line-height: 2;
+    font-weight: 300;
+    color: rgba(240, 130, 190, 0.72);
+    text-shadow:
+      0 0 0.3em rgba(240, 130, 190, 0.35),
+      0 0 0.6em rgba(240, 130, 190, 0.18);
+    /* compensate for right-side letter-spacing */
+    padding-left: 0.42em;
+  }
+
+  .home {
+    position: fixed;
+    bottom: 2.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+    color: rgba(240, 130, 190, 0.45);
+    text-decoration: none;
+    padding: 0.5em 0.9em;
+    border: 1px solid rgba(240, 130, 190, 0.18);
+    transition: color 0.4s, border-color 0.4s, background 0.4s;
+    opacity: 0;
+    animation: fadeIn 1.5s ease-out 2s forwards;
+    white-space: nowrap;
+  }
+  .home:hover {
+    color: rgba(240, 130, 190, 0.95);
+    border-color: rgba(240, 130, 190, 0.55);
+    background: rgba(240, 130, 190, 0.04);
+  }
+
+  .home .prompt {
+    color: rgba(240, 130, 190, 0.3);
+    margin-right: 0.4em;
+  }
+
+  @keyframes fadeIn {
+    to { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<canvas id="attractor"></canvas>
+<canvas id="particle"></canvas>
+<canvas id="glitch"></canvas>
+
+<div class="message">
+  <div class="code">404</div>
+  <div class="divider"></div>
+  <div class="subtitle">導くのは誰でもない<br>棘の雨降り続く先へ<br>その眼を向け</div>
+</div>
+
+<a href="/" class="home"><span class="prompt">$</span>cd ~</a>
+
+<script>
+(() => {
+  const attractorCanvas = document.getElementById('attractor');
+  const actx = attractorCanvas.getContext('2d');
+  const particleCanvas = document.getElementById('particle');
+  const pctx = particleCanvas.getContext('2d');
+  const glitchCanvas = document.getElementById('glitch');
+  const gctx = glitchCanvas.getContext('2d');
+  const messageEl = document.querySelector('.message');
+
+  let w, h;
+
+  function resize() {
+    w = window.innerWidth;
+    h = window.innerHeight;
+    [attractorCanvas, particleCanvas, glitchCanvas].forEach(c => {
+      c.width = w;
+      c.height = h;
+    });
+  }
+
+  // ========== Ghost Attractor (static, faint) ==========
+  function drawGhostAttractor() {
+    let params = null;
+
+    // Find a non-degenerate attractor (reuses landing-page math at lower quality)
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const a = -1.8 + Math.random() * 3.6;
+      const b = -1.8 + Math.random() * 3.6;
+      const c = -1.8 + Math.random() * 3.6;
+      const d = -1.8 + Math.random() * 3.6;
+
+      let x = 0.1, y = 0.1;
+      for (let i = 0; i < 200; i++) {
+        const nx = Math.sin(a * y) + c * Math.cos(a * x);
+        const ny = Math.sin(b * x) + d * Math.cos(b * y);
+        x = nx; y = ny;
+      }
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (let i = 0; i < 5000; i++) {
+        const nx = Math.sin(a * y) + c * Math.cos(a * x);
+        const ny = Math.sin(b * x) + d * Math.cos(b * y);
+        x = nx; y = ny;
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+
+      const rX = maxX - minX, rY = maxY - minY;
+      if (!isFinite(rX) || !isFinite(rY) || rX < 1 || rY < 1) continue;
+
+      params = { a, b, c, d, minX, maxX, minY, maxY };
+      break;
+    }
+
+    if (!params) return;
+
+    const { a, b, c, d, minX, maxX, minY, maxY } = params;
+    const rangeX = maxX - minX;
+    const rangeY = maxY - minY;
+    const scale = Math.min(w / rangeX, h / rangeY) * 0.72;
+    const offX = w / 2 - (minX + rangeX / 2) * scale;
+    const offY = h / 2 - (minY + rangeY / 2) * scale;
+
+    const density = new Uint32Array(w * h);
+    const iters = 900000;
+    let maxDensity = 0;
+    let x = 0.1, y = 0.1;
+
+    for (let i = 0; i < 100; i++) {
+      const nx = Math.sin(a * y) + c * Math.cos(a * x);
+      const ny = Math.sin(b * x) + d * Math.cos(b * y);
+      x = nx; y = ny;
+    }
+
+    for (let i = 0; i < iters; i++) {
+      const nx = Math.sin(a * y) + c * Math.cos(a * x);
+      const ny = Math.sin(b * x) + d * Math.cos(b * y);
+      x = nx; y = ny;
+      const px = (x * scale + offX) | 0;
+      const py = (y * scale + offY) | 0;
+      if (px >= 0 && px < w && py >= 0 && py < h) {
+        const v = ++density[py * w + px];
+        if (v > maxDensity) maxDensity = v;
+      }
+    }
+
+    const imageData = actx.createImageData(w, h);
+    const data = imageData.data;
+    const logMax = Math.log(maxDensity + 1);
+    const gamma = 0.55;
+    const ghostAlpha = 0.22; // very faint — this is what *could* have been
+
+    for (let i = 0; i < w * h; i++) {
+      const di = density[i];
+      if (di === 0) continue;
+      const t = Math.pow(Math.log(di + 1) / logMax, gamma);
+      const j = i * 4;
+      data[j]     = 240;
+      data[j + 1] = 130;
+      data[j + 2] = 190;
+      data[j + 3] = 255 * t * ghostAlpha;
+    }
+
+    actx.putImageData(imageData, 0, 0);
+  }
+
+  // ========== Drifting "off-attractor" particle ==========
+  const particle = {
+    x: 0, y: 0,
+    vx: 0, vy: 0,
+    trail: []
+  };
+
+  function initParticle() {
+    particle.x = w / 2 + (Math.random() - 0.5) * Math.min(w, h) * 0.3;
+    particle.y = h / 2 + (Math.random() - 0.5) * Math.min(w, h) * 0.3;
+    particle.vx = 0;
+    particle.vy = 0;
+    particle.trail = [];
+  }
+
+  function updateParticle() {
+    // Brownian-ish drift — no pull toward any orbit
+    particle.vx += (Math.random() - 0.5) * 0.17;
+    particle.vy += (Math.random() - 0.5) * 0.17;
+    particle.vx *= 0.965;
+    particle.vy *= 0.965;
+    particle.x += particle.vx;
+    particle.y += particle.vy;
+
+    // Soft spherical boundary — gentle pull back if wandering too far
+    const cx = w / 2, cy = h / 2;
+    const dx = particle.x - cx;
+    const dy = particle.y - cy;
+    const dist = Math.hypot(dx, dy);
+    const maxRadius = Math.min(w, h) * 0.42;
+    if (dist > maxRadius) {
+      const over = (dist - maxRadius) / maxRadius;
+      particle.vx -= (dx / dist) * over * 0.25;
+      particle.vy -= (dy / dist) * over * 0.25;
+    }
+
+    particle.trail.push({ x: particle.x, y: particle.y });
+    if (particle.trail.length > 90) particle.trail.shift();
+  }
+
+  function renderParticle() {
+    pctx.clearRect(0, 0, w, h);
+
+    // Faint trail — older = dimmer
+    for (let i = 0; i < particle.trail.length; i++) {
+      const t = i / particle.trail.length;
+      const p = particle.trail[i];
+      pctx.fillStyle = `rgba(240, 130, 190, ${t * t * 0.22})`;
+      pctx.beginPath();
+      pctx.arc(p.x, p.y, 0.5 + t * 1.6, 0, Math.PI * 2);
+      pctx.fill();
+    }
+
+    // Glow halo (layered radial gradients via shadowBlur)
+    pctx.shadowBlur = 22;
+    pctx.shadowColor = 'rgba(240, 130, 190, 0.9)';
+    pctx.fillStyle = 'rgba(255, 230, 240, 0.95)';
+    pctx.beginPath();
+    pctx.arc(particle.x, particle.y, 2.6, 0, Math.PI * 2);
+    pctx.fill();
+
+    // Core
+    pctx.shadowBlur = 0;
+    pctx.fillStyle = '#fff';
+    pctx.beginPath();
+    pctx.arc(particle.x, particle.y, 1.2, 0, Math.PI * 2);
+    pctx.fill();
+  }
+
+  function animateParticle() {
+    updateParticle();
+    renderParticle();
+    requestAnimationFrame(animateParticle);
+  }
+
+  // ========== Flickering phrases (lightbulb on its last legs) ==========
+  // Curated from the landing page's lyric set, weighted toward loss/absence/scattering
+  const phrases = [
+    { text: '思い出',           weight: 6 },  // memories (focus)
+    { text: '散らす',           weight: 6 },  // scatter (focus)
+    { text: 'この瞬間に散らす', weight: 2 },  // scatter in this moment
+    { text: '思い出が生り',     weight: 2 },  // memories bear fruit
+    { text: '募る過去',         weight: 2 },  // mounting past
+    { text: '誰でもない',       weight: 3 },  // no one
+    { text: '果てに',           weight: 2 },  // at the end
+    { text: 'わずかな命',       weight: 1 },  // brief life
+    { text: '何を見る',         weight: 2 },  // what do you see
+    { text: 'その先に誰が居る', weight: 1 },  // who is beyond
+    { text: '降り続く',         weight: 1 },  // continues to fall
+    { text: '棘の雨',           weight: 2 }   // rain of thorns (new — echoes the subtitle)
+  ];
+
+  const weightedPool = phrases.flatMap(p => Array(p.weight).fill(p.text));
+
+  const activeGlitches = [];
+  const MAX_ACTIVE = 4;
+  let spawnTimer = 400; // first phrase appears just after the scene settles
+  let lastTime = performance.now();
+  let frozen = false;   // set on shutdown — bulbs hold steady, no new spawns
+
+  function spawnGlitch() {
+    const text = weightedPool[Math.floor(Math.random() * weightedPool.length)];
+    const fontSize = 18 + Math.random() * 13;
+    const charStep = fontSize * 1.18;
+    const totalHeight = text.length * charStep;
+
+    // Keep phrases away from the center message
+    const centerW = Math.min(480, w * 0.55);
+    const centerH = Math.min(320, h * 0.45);
+    const cx = w / 2, cy = h / 2;
+
+    let x, y;
+    for (let tries = 0; tries < 25; tries++) {
+      x = 40 + Math.random() * (w - 80);
+      y = 30 + Math.random() * Math.max(40, h - 60 - totalHeight);
+      const yMid = y + totalHeight / 2;
+      const dx = Math.abs(x - cx);
+      const dy = Math.abs(yMid - cy);
+      // Also require that ANY point of the phrase doesn't clip the message box
+      const clipsCenterX = dx < centerW / 2;
+      const clipsCenterY = (y < cy + centerH / 2) && (y + totalHeight > cy - centerH / 2);
+      if (!(clipsCenterX && clipsCenterY)) break;
+    }
+
+    activeGlitches.push({
+      text, x, y, fontSize, charStep,
+      age: 0,
+      lifetime: 2800 + Math.random() * 4200, // 2.8s – 7s
+      flickerTimer: 0,
+      brightness: 1,
+      maxOpacity: 0.4 + Math.random() * 0.45
+    });
+  }
+
+  function animateGlitch(now) {
+    const dt = now - lastTime;
+    lastTime = now;
+
+    spawnTimer -= dt;
+    if (!frozen && spawnTimer <= 0 && activeGlitches.length < MAX_ACTIVE) {
+      spawnGlitch();
+      spawnTimer = 1400 + Math.random() * 2800; // 1.4s – 4.2s between spawns
+    }
+
+    gctx.clearRect(0, 0, w, h);
+    gctx.textAlign = 'center';
+    gctx.textBaseline = 'middle';
+
+    for (let i = activeGlitches.length - 1; i >= 0; i--) {
+      const g = activeGlitches[i];
+
+      if (frozen) {
+        // All bulbs snap to steady — no flicker, no aging.
+        // The glitch canvas's own opacity fade handles the visual exit.
+        const alpha = g.maxOpacity;
+        gctx.font = `300 ${g.fontSize}px 'Noto Serif JP', 'Noto Serif TC', serif`;
+        gctx.shadowBlur = 10;
+        gctx.shadowColor = `rgba(240, 130, 190, ${alpha * 0.6})`;
+        gctx.fillStyle = `rgba(240, 130, 190, ${alpha})`;
+        for (let j = 0; j < g.text.length; j++) {
+          gctx.fillText(g.text[j], g.x, g.y + j * g.charStep + g.fontSize / 2);
+        }
+        continue;
+      }
+
+      g.age += dt;
+
+      if (g.age >= g.lifetime) {
+        activeGlitches.splice(i, 1);
+        continue;
+      }
+
+      // --- Dying-lightbulb flicker ---
+      // Sharp transitions (no smooth fade between states), varied intervals
+      g.flickerTimer -= dt;
+      if (g.flickerTimer <= 0) {
+        const progress = g.age / g.lifetime;
+        const r = Math.random();
+        // Off probability climbs as the "bulb" dies
+        const offProb = 0.25 + progress * 0.4;
+
+        if (r < offProb) {
+          g.brightness = 0;
+        } else if (r < offProb + 0.12) {
+          g.brightness = 0.18 + Math.random() * 0.28; // dim glow
+        } else {
+          g.brightness = 0.78 + Math.random() * 0.22; // near full
+        }
+
+        // Mix of rapid stutter bursts and longer steady periods
+        if (Math.random() < 0.38) {
+          g.flickerTimer = 28 + Math.random() * 85;   // stutter
+        } else {
+          g.flickerTimer = 220 + Math.random() * 520; // steady-ish
+        }
+      }
+
+      // Envelope: smooth fade-in at birth, fade-out at death
+      let envelope = 1;
+      if (g.age < 260) envelope = g.age / 260;
+      const fadeOutStart = g.lifetime - 650;
+      if (g.age > fadeOutStart) envelope *= (g.lifetime - g.age) / 650;
+
+      const alpha = g.brightness * g.maxOpacity * envelope;
+      if (alpha < 0.01) continue;
+
+      gctx.font = `300 ${g.fontSize}px 'Noto Serif JP', 'Noto Serif TC', serif`;
+
+      // Soft halo + crisp glyph, matching the landing page's glow vocabulary
+      gctx.shadowBlur = 10;
+      gctx.shadowColor = `rgba(240, 130, 190, ${alpha * 0.6})`;
+      gctx.fillStyle = `rgba(240, 130, 190, ${alpha})`;
+
+      // Vertical stacking (top-down, matching the name tag's writing direction)
+      for (let j = 0; j < g.text.length; j++) {
+        gctx.fillText(g.text[j], g.x, g.y + j * g.charStep + g.fontSize / 2);
+      }
+    }
+    gctx.shadowBlur = 0;
+
+    requestAnimationFrame(animateGlitch);
+  }
+
+  // ========== Setup & lifecycle ==========
+  resize();
+  initParticle();
+  drawGhostAttractor();
+
+  // Fade the scene in rather than popping
+  requestAnimationFrame(() => {
+    attractorCanvas.classList.add('visible');
+    messageEl.classList.add('visible');
+  });
+
+  animateParticle();
+  requestAnimationFrame(animateGlitch);
+
+  // Body click = "try another universe" (re-roll the ghost attractor) — same as landing.
+  // Clicking cd ~ triggers the shutdown cascade instead of following the link.
+  let leaving = false;
+
+  document.addEventListener('click', (e) => {
+    if (leaving) return;
+    if (e.target.closest('a')) return;
+    attractorCanvas.classList.remove('visible');
+    setTimeout(() => {
+      if (leaving) return; // don't re-show anything mid-cascade
+      drawGhostAttractor();
+      initParticle();
+      attractorCanvas.classList.add('visible');
+    }, 600);
+  });
+
+  const homeEl = document.querySelector('.home');
+  const codeEl = document.querySelector('.code');
+  const subtitleEl = document.querySelector('.subtitle');
+  const dividerEl = document.querySelector('.divider');
+
+  function wait(ms) {
+    return new Promise(r => setTimeout(r, ms));
+  }
+
+  async function shutdownCascade() {
+    // Stage 1: cd ~ button + glitching fade out together.
+    // `frozen` holds all the bulbs steady at full before the canvas dims.
+    frozen = true;
+    homeEl.style.animation = 'none';
+    homeEl.style.transition = 'opacity 450ms ease-out';
+    homeEl.style.opacity = '0';
+    glitchCanvas.style.transition = 'opacity 450ms ease-out';
+    glitchCanvas.style.opacity = '0';
+    await wait(520);
+
+    // Stage 2: 404 (with its divider)
+    codeEl.style.transition = 'opacity 400ms ease-out';
+    codeEl.style.opacity = '0';
+    dividerEl.style.transition = 'opacity 400ms ease-out';
+    dividerEl.style.opacity = '0';
+    await wait(470);
+
+    // Stage 3: ghost attractor
+    // Override the existing CSS transition (2.5s) with a faster one for shutdown
+    attractorCanvas.style.transition = 'opacity 550ms ease-out';
+    attractorCanvas.style.opacity = '0';
+    attractorCanvas.classList.remove('visible');
+    await wait(620);
+
+    // Stage 4: Japanese text (the subtitle)
+    subtitleEl.style.transition = 'opacity 550ms ease-out';
+    subtitleEl.style.opacity = '0';
+    await wait(620);
+
+    // Stage 5: drifting particle
+    particleCanvas.style.transition = 'opacity 550ms ease-out';
+    particleCanvas.style.opacity = '0';
+    await wait(620);
+
+    // Beat of silence
+    await wait(100);
+
+    window.location.href = '/#';
+  }
+
+  homeEl.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (leaving) return;
+    leaving = true;
+    // Visibly disengage: no pointer, no further clicks reach anything
+    document.body.style.cursor = 'default';
+    document.body.style.pointerEvents = 'none';
+    shutdownCascade();
+  });
+
+  // Debounced resize
+  let rt;
+  window.addEventListener('resize', () => {
+    clearTimeout(rt);
+    rt = setTimeout(() => {
+      resize();
+      drawGhostAttractor();
+      initParticle();
+    }, 180);
+  });
+})();
+</script>
+</body>
+</html>
