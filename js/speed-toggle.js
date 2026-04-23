@@ -2,7 +2,7 @@ import * as i18n from './i18n.js';
 import { setSpeedUp, isSpeedUp } from './renderer.js';
 
 const STORAGE_KEY = 'site.speedUp';
-const SYMBOL = '⏩'; // ⏩
+const SYMBOL = '速';
 
 function loadInitial() {
   try {

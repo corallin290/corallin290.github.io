@@ -391,6 +391,7 @@ a { color: var(--accent); }
    in the existing .fade-in mask sweep because its ancestor is .fade-in. */
 .lang-selector {
   display: flex;
+  align-items: center;
   gap: 0.4em;
 }
 
@@ -421,6 +422,41 @@ a { color: var(--accent); }
 .lang-btn:hover,
 .lang-btn.active {
   opacity: 1;
+}
+
+/* ── Speed toggle ──
+   Shares .lang-btn dim/active opacity, but swaps the glyph style: a single
+   CJK "快" ("fast") in Noto Serif TC, borrowing the pink+cyan glow from the
+   index-page name overlay so the on-state reads as a lit neon sign and the
+   off-state as unpowered. */
+.speed-btn {
+  /* Geometrically center the glyph inside a box sized to match the flag
+     buttons, so CJK-vs-emoji font metrics don't matter. Flag box height:
+     line-height × font-size + 2 × padding-y = 1.2 × 1.3em + 0.2em × 1.3
+     = 1.82em in parent units. All values are em-relative, so alignment
+     holds across every screen size. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.82em;
+  padding: 0 0.2em;
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 500;
+  font-size: 1em;
+  /* Noto Serif TC's glyph sits below the line-box center at line-height: 1,
+     so pull it up a touch to visually center. Em-relative, so it scales. */
+  line-height: 1;
+  transform: translateY(-0.1em);
+  color: rgb(240, 130, 190);
+  text-shadow: none;
+  transition: opacity 0.2s, text-shadow 0.2s;
+}
+
+.speed-btn.active {
+  text-shadow:
+    0 0 0.08em rgba(240, 130, 190, 0.55),
+    0 0 0.18em rgba(100, 220, 215, 0.3),
+    0 0 0.3em  rgba(240, 130, 190, 0.25);
 }
 
 /* ── Language-change glitch ──
