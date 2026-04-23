@@ -1,6 +1,6 @@
 import * as fs from './filesystem.js';
 import * as commands from './commands/registry.js';
-import { render, renderInto, animateLines, fontsReady } from './renderer.js';
+import { render, renderInto, animateLines, applyFadeLine, fontsReady } from './renderer.js';
 import * as i18n from './i18n.js';
 import './lang-selector.js';
 import './speed-toggle.js';
@@ -19,6 +19,7 @@ const ctx = {
 const output = document.getElementById('output');
 const input = document.getElementById('input');
 const promptEl = document.getElementById('prompt');
+const inputLineEl = document.getElementById('input-line');
 
 function updatePrompt() {
   const display = cwd === '/' ? '~' : '~' + cwd;
@@ -56,8 +57,12 @@ async function appendOutput(html, inputLine, meta) {
   // split at wrong boundaries and the per-line delays then chain incorrectly,
   // visible on first page load as out-of-order reveals.
   await fontsReady;
-  animateLines(block);
+  const duration = animateLines(block);
   window.scrollTo(0, document.body.scrollHeight);
+  // Block the caller until the reveal finishes so chained steps animate one
+  // after another, and so the new prompt can be "written" on screen as the
+  // visible last line instead of appearing above output that's still sweeping.
+  await new Promise((r) => setTimeout(r, duration * 1000));
 }
 
 async function executeStep(step, echoLine) {
@@ -90,15 +95,29 @@ async function execute(line) {
   const steps = commands.parseSequence(line);
   if (steps.length === 0) return;
 
+  // Hide the prompt + input while output animates, then fade them back in
+  // with the fade-line sweep so the new prompt reads as the last line of
+  // the block instead of sitting below an in-progress reveal.
+  inputLineEl.style.visibility = 'hidden';
+
   // Only the first step echoes the raw input line; chained steps execute
   // silently so the transcript reads as one entry, matching bash's behavior
   // where the echo is the typed line, not each expanded segment.
   for (let i = 0; i < steps.length; i++) {
     const result = await executeStep(steps[i], i === 0 ? line : undefined);
-    if (result.cleared) return;
+    if (result.cleared) break;
     if (!result.ok) break;
   }
+
   updatePrompt();
+  inputLineEl.style.visibility = '';
+  applyFadeLine(promptEl, promptEl.textContent.length);
+  promptEl.addEventListener('animationend', () => {
+    promptEl.classList.remove('fade-line');
+    promptEl.style.removeProperty('--fade-delay');
+    promptEl.style.removeProperty('--fade-duration');
+    input.focus();
+  }, { once: true });
 }
 
 input.addEventListener('keydown', async (e) => {
