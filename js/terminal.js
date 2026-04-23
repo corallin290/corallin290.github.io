@@ -1,8 +1,9 @@
 import * as fs from './filesystem.js';
 import * as commands from './commands/registry.js';
-import { render, renderInto, animateLines } from './renderer.js';
+import { render, renderInto, animateLines, fontsReady } from './renderer.js';
 import * as i18n from './i18n.js';
 import './lang-selector.js';
+import './speed-toggle.js';
 
 let cwd = '/';
 const history = [];
@@ -24,7 +25,7 @@ function updatePrompt() {
   promptEl.textContent = `visitor@corallins-website:${display}$ `;
 }
 
-function appendOutput(html, inputLine, meta) {
+async function appendOutput(html, inputLine, meta) {
   const block = document.createElement('div');
   block.className = 'output-block';
 
@@ -50,6 +51,11 @@ function appendOutput(html, inputLine, meta) {
   }
 
   output.appendChild(block);
+  // Wait for fonts so splitIntoVisualLines measures wrap points against the
+  // final Spectral metrics. Measuring against the fallback serif freezes the
+  // split at wrong boundaries and the per-line delays then chain incorrectly,
+  // visible on first page load as out-of-order reveals.
+  await fontsReady;
   animateLines(block);
   window.scrollTo(0, document.body.scrollHeight);
 }
@@ -59,7 +65,7 @@ async function executeStep(step, echoLine) {
   const cmd = commands.getCommand(name);
   if (!cmd) {
     const text = i18n.get('err.cmdNotFound', { name });
-    appendOutput(render(text), echoLine, { cmd: '__notfound__', args: [name], kind: 'text' });
+    await appendOutput(render(text), echoLine, { cmd: '__notfound__', args: [name], kind: 'text' });
     return { ok: false };
   }
 
@@ -76,7 +82,7 @@ async function executeStep(step, echoLine) {
   const meta = result.text
     ? { cmd: name, args, kind: result.isMarkdown ? 'markdown' : 'text', cwdSnap }
     : undefined;
-  appendOutput(html, echoLine, meta);
+  await appendOutput(html, echoLine, meta);
   return { ok: result.ok !== false };
 }
 

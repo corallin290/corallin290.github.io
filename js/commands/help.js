@@ -17,11 +17,10 @@ export default {
       parts.push(`<div class="help-header">${escape(i18n.get('help.touchHint'))}</div>`);
     }
     parts.push(`<div class="help-header">${escape(i18n.get('help.header'))}</div>`);
-    for (const cmd of ctx.commands.getAll()) {
-      parts.push(
-        `<div class="help-row"><span class="help-cmd">${escape(cmd.name)}</span><span>${escape(cmd.description)}</span></div>`
-      );
-    }
+    const cells = ctx.commands.getAll().map((cmd) =>
+      `<span class="help-cmd">${escape(cmd.name)}</span><span class="help-desc">${escape(cmd.description)}</span>`
+    ).join('');
+    parts.push(`<div class="help-grid">${cells}</div>`);
     return { text: parts.join(''), isHtml: true };
   },
 };

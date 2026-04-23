@@ -1,8 +1,9 @@
 import * as fs from './filesystem.js';
 import * as commands from './commands/registry.js';
-import { render, renderInto, animateLines, applyFadeLine } from './renderer.js';
+import { render, renderInto, animateLines, applyFadeLine, fontsReady, observeResplit } from './renderer.js';
 import * as i18n from './i18n.js';
 import './lang-selector.js';
+import './speed-toggle.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -19,6 +20,8 @@ const output = document.getElementById('output');
 const utilButtons = document.getElementById('util-buttons');
 const promptEl = document.getElementById('prompt');
 const promptArea = document.getElementById('prompt-area');
+
+observeResplit(output);
 
 let commandInFlight = false;
 
@@ -75,7 +78,7 @@ function makeParentDirButton() {
   return btn;
 }
 
-function appendOutput({ html, items, commandName, meta }) {
+async function appendOutput({ html, items, commandName, meta }) {
   const block = document.createElement('div');
   block.className = 'output-block';
 
@@ -105,6 +108,7 @@ function appendOutput({ html, items, commandName, meta }) {
   }
 
   output.appendChild(block);
+  await fontsReady;
   const duration = animateLines(block);
   window.scrollTo(0, document.body.scrollHeight);
   return duration;
@@ -268,7 +272,7 @@ async function runCommandSequence(steps, { displayCommand } = {}) {
       const meta = (result.text || result.items)
         ? { cmd: step.name, args: step.args, kind, cwdSnap }
         : null;
-      const outputDuration = appendOutput({ html, items: result.items, commandName: step.name, meta });
+      const outputDuration = await appendOutput({ html, items: result.items, commandName: step.name, meta });
       await sleep(outputDuration * 1000);
 
       // Short-circuit on failure so a chained sequence (e.g. `cd x && ls`)

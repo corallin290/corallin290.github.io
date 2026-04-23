@@ -201,14 +201,13 @@ a { color: var(--accent); }
   margin: 0;
 }
 
-.output-content .help-row {
-  display: flex;
-  gap: 1em;
+.output-content .help-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 1em;
+  row-gap: 0;
 }
-.output-content .help-cmd {
-  flex: 0 0 5em;
-  color: var(--accent);
-}
+.output-content .help-cmd { color: var(--accent); }
 .output-content .help-header {
   margin-bottom: 0.4em;
 }

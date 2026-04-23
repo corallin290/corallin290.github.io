@@ -11,6 +11,29 @@ const CHARS_PER_SECOND = 55;
 const REVEAL_PORTION = 0.8;
 const PRE_ROLL = (1 - REVEAL_PORTION) / 2;  // 10%
 const POST_ROLL = (1 - REVEAL_PORTION) / 2; // 10%
+// Opt-in cap on the total reveal time of a single output block. When speed-up
+// mode is on and the block's chained reveals at CHARS_PER_SECOND would exceed
+// this, the effective rate is scaled up for that block so long outputs (e.g.
+// cat of a large file) finish within a predictable time instead of ~40s.
+const MAX_BLOCK_REVEAL_SECONDS = 3;
+
+let speedUpEnabled = false;
+export function setSpeedUp(on) { speedUpEnabled = !!on; }
+export function isSpeedUp() { return speedUpEnabled; }
+
+// Resolves once document fonts (Spectral) have loaded. Measurement before
+// this is unreliable: fallback-serif glyph widths produce different wrap
+// points, so splitIntoVisualLines would freeze the split at the wrong
+// boundaries and need to redo it on the loadingdone event.
+export const fontsReady =
+  typeof document !== 'undefined' && document.fonts
+    ? document.fonts.ready.catch(() => {})
+    : Promise.resolve();
+
+// Pre-split child snapshots per element, used to restore the original DOM
+// so the split can be re-run at a new container width (see observeResplit).
+// WeakMap so entries are reclaimed when elements drop out of the DOM.
+const originalChildrenByEl = new WeakMap();
 
 /**
  * Apply the fade-line sweep animation to an arbitrary element. Shifts
@@ -43,104 +66,166 @@ export function renderInto(contentEl, text, isMarkdown, isHtml) {
 }
 
 /**
- * Splits an element containing only text into per-visual-line wrappers by
- * wrapping each word in a span, measuring their offsetTop, and regrouping
- * them into line wrappers. Returns the array of line wrapper elements, or
- * [el] if splitting isn't applicable (nested non-text children, empty, or
- * already a single line).
+ * Splits an element into per-visual-line <span class="mdline"> wrappers.
+ * Uses Range.getClientRects/extractContents so wrap points come from the
+ * browser's actual layout rather than being recomputed. Inline markup
+ * (<strong>, <em>, <code>) that crosses a wrap is preserved by
+ * extractContents splitting the element at the range boundary.
+ * Returns [el] unchanged if the element is empty or fits on one line.
  */
 function splitIntoVisualLines(el) {
   if (!el.textContent || !el.textContent.trim()) return [el];
 
-  const originalChildren = Array.from(el.childNodes);
+  // Skip layout modes where children's vertical positions are driven by
+  // the container (flex/grid), not by wrapped text flow. Char-top probing
+  // inside such a container would misread inter-cell baseline offsets as
+  // line wraps and destroy the layout. Callers that want per-line animation
+  // of text inside a flex/grid container should pass the inner text-flow
+  // element (e.g. a specific grid cell) instead of the container itself.
+  const display = getComputedStyle(el).display;
+  if (display === 'flex' || display === 'inline-flex'
+      || display === 'grid' || display === 'inline-grid') {
+    return [el];
+  }
 
-  // Build a flat list of "units": word spans (measurable), whitespace text
-  // (unmeasurable filler), and intact inline elements like <code>/<strong>
-  // (measurable as one atom). This lets us handle paragraphs with nested
-  // inline markup without trying to split inside those elements.
-  const units = [];
-  for (const child of originalChildren) {
-    if (child.nodeType === Node.TEXT_NODE) {
-      const parts = child.textContent.split(/(\s+)/).filter((p) => p.length > 0);
-      for (const part of parts) {
-        if (/^\s+$/.test(part)) {
-          units.push({ kind: 'ws', text: part });
-        } else {
-          const span = document.createElement('span');
-          span.textContent = part;
-          units.push({ kind: 'measurable', el: span });
-        }
+  // Stash pre-split children so resplit() can restore and re-run on
+  // container-width or font changes.
+  if (!originalChildrenByEl.has(el)) {
+    originalChildrenByEl.set(
+      el,
+      Array.from(el.childNodes).map((n) => n.cloneNode(true)),
+    );
+  }
+
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+  if (textNodes.length === 0) return [el];
+
+  // Probe each character's top and start a new line when it jumps by more
+  // than half a glyph height from the previous line's reference top. This
+  // handles two cases that a strict top-equality or full-overlap test each
+  // mishandle:
+  //   - Siblings inside a flex row (e.g. help's .help-cmd vs description
+  //     spans) can sit on the same visual row with a small baseline offset
+  //     — top-equality would split them erroneously.
+  //   - Adjacent wrapped lines have glyph rects whose ascender/descender
+  //     bleed can make their y-ranges touch — a y-range-overlap test would
+  //     fail to split them.
+  // Half a glyph height is comfortably above realistic baseline jitter and
+  // comfortably below a full line-height gap.
+  const boundaries = [];
+  const probe = document.createRange();
+  let lineTop = null;
+
+  for (const tn of textNodes) {
+    const len = tn.nodeValue.length;
+    for (let i = 0; i < len; i++) {
+      probe.setStart(tn, i);
+      probe.setEnd(tn, i + 1);
+      const rects = probe.getClientRects();
+      if (rects.length === 0) continue;
+      const rect = rects[rects.length - 1];
+      const tol = Math.max(4, rect.height * 0.5);
+      if (lineTop === null) {
+        lineTop = rect.top;
+      } else if (Math.abs(rect.top - lineTop) > tol) {
+        boundaries.push({ node: tn, offset: i });
+        lineTop = rect.top;
       }
-    } else if (child.nodeType === Node.ELEMENT_NODE) {
-      units.push({ kind: 'measurable', el: child });
     }
   }
 
-  // Place units back into el for measurement.
-  el.textContent = '';
-  for (const u of units) {
-    if (u.kind === 'ws') el.appendChild(document.createTextNode(u.text));
-    else el.appendChild(u.el);
+  if (boundaries.length === 0) return [el];
+
+  const firstTN = textNodes[0];
+  const lastTN = textNodes[textNodes.length - 1];
+  const lineBounds = [];
+  let prev = { node: firstTN, offset: 0 };
+  for (const b of boundaries) {
+    lineBounds.push({
+      startNode: prev.node, startOffset: prev.offset,
+      endNode: b.node, endOffset: b.offset,
+    });
+    prev = b;
   }
-
-  const measurable = units.filter((u) => u.kind === 'measurable');
-  if (measurable.length === 0) return [el];
-
-  // Group measurables by visual line. Two elements are on the same line if
-  // their vertical y-ranges overlap at all — this handles elements with
-  // different heights (e.g., inline <code> with smaller font + padding).
-  const groups = [];
-  let current = null;
-  for (const u of measurable) {
-    const rect = u.el.getBoundingClientRect();
-    if (!current || rect.top >= current.bottom || rect.bottom <= current.top) {
-      current = { top: rect.top, bottom: rect.bottom, units: [u] };
-      groups.push(current);
-    } else {
-      current.units.push(u);
-      current.top = Math.min(current.top, rect.top);
-      current.bottom = Math.max(current.bottom, rect.bottom);
-    }
-  }
-
-  if (groups.length <= 1) return [el];
-
-  // Build one mdline wrapper per visual line. Walk the original unit order
-  // and place each unit into its line wrapper. Whitespace at line
-  // boundaries is dropped (otherwise trailing/leading spaces linger).
-  const unitToLineIdx = new Map();
-  groups.forEach((g, idx) => g.units.forEach((u) => unitToLineIdx.set(u, idx)));
-
-  const lineEls = groups.map(() => {
-    const line = document.createElement('span');
-    line.className = 'mdline';
-    return line;
+  lineBounds.push({
+    startNode: prev.node, startOffset: prev.offset,
+    endNode: lastTN, endOffset: lastTN.nodeValue.length,
   });
 
-  for (let i = 0; i < units.length; i++) {
-    const u = units[i];
-    if (u.kind === 'measurable') {
-      lineEls[unitToLineIdx.get(u)].appendChild(u.el);
-    } else {
-      // Find the next measurable unit; if it's on the same line as the
-      // previous measurable, keep this whitespace.
-      let prevIdx = null;
-      let nextIdx = null;
-      for (let j = i - 1; j >= 0; j--) {
-        if (units[j].kind === 'measurable') { prevIdx = unitToLineIdx.get(units[j]); break; }
-      }
-      for (let j = i + 1; j < units.length; j++) {
-        if (units[j].kind === 'measurable') { nextIdx = unitToLineIdx.get(units[j]); break; }
-      }
-      if (prevIdx !== null && prevIdx === nextIdx) {
-        lineEls[prevIdx].appendChild(document.createTextNode(u.text));
-      }
-    }
+  // Extract END → START so extractContents mutations (which split text
+  // nodes and elements at range boundaries) don't invalidate the
+  // (node, offset) references we stored for earlier lines.
+  const fragments = new Array(lineBounds.length);
+  for (let i = lineBounds.length - 1; i >= 0; i--) {
+    const b = lineBounds[i];
+    const r = document.createRange();
+    r.setStart(b.startNode, b.startOffset);
+    r.setEnd(b.endNode, b.endOffset);
+    fragments[i] = r.extractContents();
   }
 
   el.textContent = '';
-  for (const line of lineEls) el.appendChild(line);
+  const lineEls = [];
+  for (const frag of fragments) {
+    const mdline = document.createElement('span');
+    mdline.className = 'mdline';
+    mdline.appendChild(frag);
+    el.appendChild(mdline);
+    lineEls.push(mdline);
+  }
   return lineEls;
+}
+
+// Restore the pre-split children snapshot and re-run splitIntoVisualLines.
+// Called by the ResizeObserver and document.fonts loadingdone handlers so
+// wrap points track the current container width and font metrics.
+export function resplit(el) {
+  const original = originalChildrenByEl.get(el);
+  if (!original) return [el];
+  // Don't tear down mid-animation. The reveal is driven by per-mdline
+  // .fade-line classes with chained delays; replacing the children here
+  // produces fresh spans with no class or delay, so the still-hidden later
+  // lines would pop in instantly and the already-running earlier line's
+  // sweep would vanish. The animationend handler strips .fade-line when a
+  // line is done, so a subtree with any .fade-line still present means the
+  // reveal chain is live — leave it alone.
+  if (el.classList.contains('fade-line') || el.querySelector('.fade-line')) {
+    return Array.from(el.children);
+  }
+  el.textContent = '';
+  for (const n of original) el.appendChild(n.cloneNode(true));
+  return splitIntoVisualLines(el);
+}
+
+let resizeObserver = null;
+let lastObservedWidth = 0;
+
+function resplitAll(rootEl) {
+  for (const el of rootEl.querySelectorAll('p, h1, h2, h3, li, .help-desc')) {
+    if (originalChildrenByEl.has(el)) resplit(el);
+  }
+}
+
+export function observeResplit(rootEl) {
+  if (resizeObserver) return;
+  lastObservedWidth = rootEl.getBoundingClientRect().width;
+  resizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const w = entry.contentBoxSize
+        ? entry.contentBoxSize[0].inlineSize
+        : entry.contentRect.width;
+      if (Math.abs(w - lastObservedWidth) < 1) continue;
+      lastObservedWidth = w;
+      resplitAll(rootEl);
+    }
+  });
+  resizeObserver.observe(rootEl);
+
+  if (document.fonts) {
+    document.fonts.addEventListener('loadingdone', () => resplitAll(rootEl));
+  }
 }
 
 /**
@@ -181,6 +266,19 @@ export function animateLines(block) {
               entries.push({ el: line, chars: line.textContent.length });
             }
           }
+        } else if (child.classList.contains('help-grid')) {
+          // Grid holds flat (.help-cmd, .help-desc) pairs. The splitter can't
+          // run on the grid container (layout-driven children), so split each
+          // .help-desc individually — it's plain inline text in its cell.
+          const cells = child.children;
+          for (let i = 0; i < cells.length; i += 2) {
+            const cmd = cells[i];
+            const desc = cells[i + 1];
+            entries.push({ el: cmd, chars: cmd.textContent.length });
+            for (const line of splitIntoVisualLines(desc)) {
+              entries.push({ el: line, chars: line.textContent.length });
+            }
+          }
         } else {
           for (const line of splitIntoVisualLines(child)) {
             entries.push({ el: line, chars: line.textContent.length });
@@ -193,12 +291,24 @@ export function animateLines(block) {
   // Duration such that the reveal portion = chars / CHARS_PER_SECOND.
   // Delays chain so each line's reveal begins exactly when the previous
   // line's reveal ends, with their pre-roll/post-roll overlapping.
+  //
+  // Total reveal time across all chained entries equals
+  //   totalChars / CHARS_PER_SECOND
+  // (pre-roll/post-roll of adjacent lines cancel). If that would exceed
+  // MAX_BLOCK_REVEAL_SECONDS, scale the rate up for this block only.
+  let totalChars = 0;
+  for (const e of entries) totalChars += e.chars;
+  const naturalTotal = totalChars / CHARS_PER_SECOND;
+  const rate = speedUpEnabled && naturalTotal > MAX_BLOCK_REVEAL_SECONDS
+    ? totalChars / MAX_BLOCK_REVEAL_SECONDS
+    : CHARS_PER_SECOND;
+
   let prevDelay = 0;
   let prevDuration = 0;
 
   for (let i = 0; i < entries.length; i++) {
     const { el, chars } = entries[i];
-    const duration = chars > 0 ? chars / CHARS_PER_SECOND / REVEAL_PORTION : 0;
+    const duration = chars > 0 ? chars / rate / REVEAL_PORTION : 0;
 
     let delay;
     if (i === 0) {
