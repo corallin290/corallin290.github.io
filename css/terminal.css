@@ -299,6 +299,32 @@ a { color: var(--accent); }
   border-color: var(--dir-color);
 }
 
+/* ── tree output ── */
+/* Each row is its own child of .output-content so animateLines reveals it
+   as a single line. The prefix span is monospace with preserved whitespace
+   so box-drawing chars (│ ├ └ ─) align vertically across nesting depths —
+   the body font (Spectral) is proportional and would jitter the prefixes. */
+.tree-line {
+  display: block;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.tree-prefix {
+  font-family: 'Courier New', monospace;
+  white-space: pre;
+  color: var(--dim);
+}
+
+/* Kill the default file-btn side margin inside a tree row so the button
+   sits flush against its prefix; keep a tiny right margin only so adjacent
+   inline content (if any) doesn't collide. */
+.output-content .tree-line .file-btn,
+.output-content .tree-line .file-btn.dir-btn {
+  margin: 0;
+  vertical-align: baseline;
+}
+
 .util-btn {
   border-color: var(--dim);
   color: var(--dim);

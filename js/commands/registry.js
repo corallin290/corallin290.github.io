@@ -1,5 +1,6 @@
 import help from './help.js';
 import ls from './ls.js';
+import tree from './tree.js';
 import cat from './cat.js';
 import cd from './cd.js';
 import pwd from './pwd.js';
@@ -7,7 +8,7 @@ import clear from './clear.js';
 
 const commands = new Map();
 
-for (const cmd of [help, ls, cat, cd, pwd, clear]) {
+for (const cmd of [help, ls, tree, cat, cd, pwd, clear]) {
   commands.set(cmd.name, cmd);
 }
 

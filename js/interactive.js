@@ -39,16 +39,22 @@ function makeFileButton(item) {
   btn.className = item.type === 'dir' ? 'file-btn dir-btn' : 'file-btn';
   btn.textContent = item.type === 'dir' ? item.name + '/' : item.name;
 
+  // ls produces items keyed by bare name (relative to the current cwd at
+  // click time). tree produces items deeper than cwd, so it attaches
+  // absPath and we use that instead — otherwise a nested file like
+  // about_me/contact.md would be interpreted as a sibling of cwd.
+  const target = item.absPath ?? item.name;
+
   btn.addEventListener('click', async () => {
     if (item.type === 'dir') {
       await runCommandSequence(
-        [{ name: 'cd', args: [item.name] }, { name: 'ls', args: [] }],
-        { displayCommand: `cd ${item.name} && ls` },
+        [{ name: 'cd', args: [target] }, { name: 'ls', args: [] }],
+        { displayCommand: `cd ${target} && ls` },
       );
     } else {
       await runCommandSequence(
-        [{ name: 'cat', args: [item.name] }, { name: 'ls', args: [] }],
-        { displayCommand: `cat ${item.name} && ls` },
+        [{ name: 'cat', args: [target] }, { name: 'ls', args: [] }],
+        { displayCommand: `cat ${target} && ls` },
       );
     }
   });
@@ -78,7 +84,7 @@ function makeParentDirButton() {
   return btn;
 }
 
-async function appendOutput({ html, items, commandName, meta }) {
+async function appendOutput({ html, items, treeLines, commandName, meta }) {
   const block = document.createElement('div');
   block.className = 'output-block';
 
@@ -98,6 +104,30 @@ async function appendOutput({ html, items, commandName, meta }) {
     }
     for (const item of items) {
       content.appendChild(makeFileButton(item));
+    }
+  } else if (treeLines) {
+    // Each tree row is its own child of .output-content so animateLines
+    // reveals them one line at a time without splitIntoVisualLines having
+    // to re-derive wrap points across the whole block.
+    for (const line of treeLines) {
+      const row = document.createElement('div');
+      row.className = 'tree-line';
+      if (line.prefix) {
+        const prefixSpan = document.createElement('span');
+        prefixSpan.className = 'tree-prefix';
+        prefixSpan.textContent = line.prefix;
+        row.appendChild(prefixSpan);
+      }
+      if (line.isRoot) {
+        row.appendChild(document.createTextNode(line.name));
+      } else {
+        row.appendChild(makeFileButton({
+          name: line.name,
+          type: line.type,
+          absPath: line.absPath,
+        }));
+      }
+      content.appendChild(row);
     }
   } else if (html) {
     content.innerHTML = html;
@@ -268,11 +298,21 @@ async function runCommandSequence(steps, { displayCommand } = {}) {
       }
 
       const html = result.text ? render(result.text, result.isMarkdown, result.isHtml) : '';
-      const kind = result.items ? 'buttons' : (result.isMarkdown ? 'markdown' : 'text');
-      const meta = (result.text || result.items)
+      const kind = result.items
+        ? 'buttons'
+        : result.treeLines
+          ? 'tree'
+          : result.isMarkdown ? 'markdown' : 'text';
+      const meta = (result.text || result.items || result.treeLines)
         ? { cmd: step.name, args: step.args, kind, cwdSnap }
         : null;
-      const outputDuration = await appendOutput({ html, items: result.items, commandName: step.name, meta });
+      const outputDuration = await appendOutput({
+        html,
+        items: result.items,
+        treeLines: result.treeLines,
+        commandName: step.name,
+        meta,
+      });
       await sleep(outputDuration * 1000);
 
       // Short-circuit on failure so a chained sequence (e.g. `cd x && ls`)
@@ -295,6 +335,7 @@ function renderUtilButtons() {
 
   const utils = [
     { label: 'ls', name: 'ls', action: () => runCommand('ls', []) },
+    { label: 'tree', name: 'tree', action: () => runCommand('tree', []) },
     { label: 'pwd', name: 'pwd', action: () => runCommand('pwd', []) },
     { label: 'help', name: 'help', action: () => runCommand('help', []) },
     { label: 'clear', name: 'clear', action: () => runCommand('clear', []) },
@@ -485,9 +526,10 @@ async function rerenderBlock(block) {
   if (!content) return;
 
   const kind = block.dataset.kind;
-  // Buttons blocks are file/dir listings — filenames don't translate, and
-  // their embedded parent-dir tooltip is refreshed via refreshTooltips.
-  if (kind === 'buttons') return;
+  // Buttons and tree blocks are file/dir listings — filenames don't
+  // translate, and their embedded parent-dir tooltip is refreshed via
+  // refreshTooltips.
+  if (kind === 'buttons' || kind === 'tree') return;
 
   const cmdName = block.dataset.cmd;
   const args = block.dataset.args ? JSON.parse(block.dataset.args) : [];
