@@ -428,6 +428,16 @@ a { color: var(--accent); }
   z-index: 15;
 }
 
+/* On tall/narrow viewports (phones in portrait), stack the chrome vertically
+   so it doesn't crowd the header. DOM order is [速, en, ja, zh], so column
+   direction puts 速 at the top. */
+@media (orientation: portrait) {
+  .lang-selector[data-lang-selector-fixed] {
+    flex-direction: column;
+    gap: 0.2em;
+  }
+}
+
 .lang-selector[data-lang-selector-inline] {
   justify-content: center;
   margin-bottom: 1.2em;
