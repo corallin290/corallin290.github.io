@@ -334,9 +334,7 @@ function renderUtilButtons() {
   utilButtons.innerHTML = '';
 
   const utils = [
-    { label: 'ls', name: 'ls', action: () => runCommand('ls', []) },
     { label: 'tree', name: 'tree', action: () => runCommand('tree', []) },
-    { label: 'pwd', name: 'pwd', action: () => runCommand('pwd', []) },
     { label: 'help', name: 'help', action: () => runCommand('help', []) },
     { label: 'clear', name: 'clear', action: () => runCommand('clear', []) },
   ];
