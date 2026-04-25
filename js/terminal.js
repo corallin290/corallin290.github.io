@@ -58,6 +58,13 @@ async function appendOutput(html, inputLine, meta) {
   // visible on first page load as out-of-order reveals.
   await fontsReady;
   const duration = animateLines(block);
+  if (duration > 0) {
+    // Stamp so a mid-reveal language switch can continue the animation across
+    // the content swap (see rerenderBlock) instead of leaving this sleep
+    // stalled while the swapped content sits fully visible.
+    block.dataset.revealStart = String(performance.now());
+    block.dataset.revealDuration = String(duration);
+  }
   window.scrollTo(0, document.body.scrollHeight);
   // Block the caller until the reveal finishes so chained steps animate one
   // after another, and so the new prompt can be "written" on screen as the
@@ -163,13 +170,12 @@ async function rerenderBlock(block) {
   const content = block.querySelector('.output-content');
   if (!content) return;
 
-  const kind = block.dataset.kind;
-
   const cmdName = block.dataset.cmd;
   const args = block.dataset.args ? JSON.parse(block.dataset.args) : [];
 
   if (cmdName === '__notfound__') {
     renderInto(content, i18n.get('err.cmdNotFound', { name: args[0] || '' }), false);
+    continueRevealIfRunning(block);
     return;
   }
 
@@ -190,6 +196,24 @@ async function rerenderBlock(block) {
   const result = await cmd.execute(args, fakeCtx);
   if (result.clear || !result.text) return;
   renderInto(content, result.text, result.isMarkdown, result.isHtml);
+  continueRevealIfRunning(block);
+}
+
+// If the block's original reveal is still in flight, continue it on the
+// swapped content so it ends at the same wall-clock instant. Otherwise the
+// per-step sleep would stall a chained `&& tree` for the full (now-stale)
+// original duration after the swap left the new content fully visible.
+function continueRevealIfRunning(block) {
+  const startMs = parseFloat(block.dataset.revealStart);
+  const durationS = parseFloat(block.dataset.revealDuration);
+  if (!Number.isFinite(startMs) || !Number.isFinite(durationS)) return;
+  const elapsedS = (performance.now() - startMs) / 1000;
+  if (elapsedS >= durationS) return;
+  animateLines(block, {
+    targetDuration: durationS,
+    startOffset: elapsedS,
+    skipEcho: true,
+  });
 }
 
 document.addEventListener('languagechange', async () => {

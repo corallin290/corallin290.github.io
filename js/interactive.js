@@ -48,13 +48,13 @@ function makeFileButton(item) {
   btn.addEventListener('click', async () => {
     if (item.type === 'dir') {
       await runCommandSequence(
-        [{ name: 'cd', args: [target] }, { name: 'ls', args: [] }],
-        { displayCommand: `cd ${target} && ls` },
+        [{ name: 'cd', args: [target] }, { name: 'tree', args: [] }],
+        { displayCommand: `cd ${target} && tree` },
       );
     } else {
       await runCommandSequence(
-        [{ name: 'cat', args: [target] }, { name: 'ls', args: [] }],
-        { displayCommand: `cat ${target} && ls` },
+        [{ name: 'cat', args: [target] }, { name: 'tree', args: [] }],
+        { displayCommand: `cat ${target} && tree` },
       );
     }
   });
@@ -77,14 +77,14 @@ function makeParentDirButton() {
   btn.dataset.tooltip = i18n.get('ui.tooltip.parentDir');
   btn.addEventListener('click', async () => {
     await runCommandSequence(
-      [{ name: 'cd', args: ['..'] }, { name: 'ls', args: [] }],
-      { displayCommand: 'cd .. && ls' },
+      [{ name: 'cd', args: ['..'] }, { name: 'tree', args: [] }],
+      { displayCommand: 'cd .. && tree' },
     );
   });
   return btn;
 }
 
-async function appendOutput({ html, items, treeLines, commandName, meta }) {
+async function appendOutput({ html, items, treeLines, commandName, meta, scroll = true }) {
   const block = document.createElement('div');
   block.className = 'output-block';
 
@@ -140,7 +140,16 @@ async function appendOutput({ html, items, treeLines, commandName, meta }) {
   output.appendChild(block);
   await fontsReady;
   const duration = animateLines(block);
-  window.scrollTo(0, document.body.scrollHeight);
+  if (duration > 0) {
+    // Stamp so a mid-reveal language switch can continue the animation across
+    // the content swap (see rerenderBlock) instead of leaving the original
+    // sleep stalled while the swapped content sits fully visible.
+    block.dataset.revealStart = String(performance.now());
+    block.dataset.revealDuration = String(duration);
+  }
+  if (scroll) {
+    window.scrollTo(0, block.getBoundingClientRect().top + window.scrollY);
+  }
   return duration;
 }
 
@@ -262,7 +271,7 @@ async function runCommandSequence(steps, { displayCommand } = {}) {
       if (isFirst) {
         // User-initiated: animate the live prompt-area into its committed state.
         // When a displayCommand is supplied, show the full compound (e.g.
-        // `cat foo && ls`) as the prompt text so chained steps don't need
+        // `cat foo && tree`) as the prompt text so chained steps don't need
         // their own echo — matching bash, which prints one prompt per line.
         const commandText = displayCommand ?? [step.name, ...step.args].join(' ');
         await animateLivePromptCommit(promptText, commandText);
@@ -312,10 +321,11 @@ async function runCommandSequence(steps, { displayCommand } = {}) {
         treeLines: result.treeLines,
         commandName: step.name,
         meta,
+        scroll: isFirst,
       });
       await sleep(outputDuration * 1000);
 
-      // Short-circuit on failure so a chained sequence (e.g. `cd x && ls`)
+      // Short-circuit on failure so a chained sequence (e.g. `cd x && tree`)
       // skips the rest when an earlier step errors out.
       if (result.ok === false) break;
     }
@@ -545,6 +555,25 @@ async function rerenderBlock(block) {
   const result = await cmd.execute(args, fakeCtx);
   if (result.clear || !result.text) return;
   renderInto(content, result.text, result.isMarkdown, result.isHtml);
+  continueRevealIfRunning(block);
+}
+
+// If the block's original reveal is still in flight, continue it on the
+// swapped content so it ends at the same wall-clock instant. Otherwise the
+// per-step sleep in runCommandSequence would stall a chained `&& tree` for
+// the full (now-stale) original duration after the swap left the new content
+// fully visible.
+function continueRevealIfRunning(block) {
+  const startMs = parseFloat(block.dataset.revealStart);
+  const durationS = parseFloat(block.dataset.revealDuration);
+  if (!Number.isFinite(startMs) || !Number.isFinite(durationS)) return;
+  const elapsedS = (performance.now() - startMs) / 1000;
+  if (elapsedS >= durationS) return;
+  animateLines(block, {
+    targetDuration: durationS,
+    startOffset: elapsedS,
+    skipEcho: true,
+  });
 }
 
 document.addEventListener('languagechange', async () => {

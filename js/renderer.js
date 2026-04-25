@@ -58,9 +58,9 @@ export function render(text, isMarkdown, isHtml) {
   return el.outerHTML;
 }
 
-// Swap a content element's innerHTML without re-running the typewriter
-// reveal. Used by the language-switch path: the block is already fully
-// visible, so we just replace its content in place with the new translation.
+// Swap a content element's innerHTML in place. Used by the language-switch
+// path; the caller decides whether to re-run the reveal animation (e.g. to
+// continue an in-flight reveal across the swap).
 export function renderInto(contentEl, text, isMarkdown, isHtml) {
   contentEl.innerHTML = render(text, isMarkdown, isHtml);
 }
@@ -236,13 +236,19 @@ export function observeResplit(rootEl) {
  */
 const ECHO_FADE_SECONDS = 0.4;
 
-export function animateLines(block) {
+// `targetDuration` (seconds) overrides the rate so the chained reveals fit
+// exactly that wall-clock span, bypassing the speed-up cap. `startOffset`
+// (seconds) shifts every entry's delay backward, treating the animation as
+// having begun that long ago — used to continue an in-flight reveal across a
+// content swap so the new content lands at the original wall-clock end.
+// `skipEcho` ignores any .prompt-echo when computing offsets (rerender path).
+export function animateLines(block, { targetDuration, startOffset = 0, skipEcho = false } = {}) {
   const entries = []; // { el, chars }
 
   // The prompt echo uses a plain opacity fade (via CSS) instead of the
   // left-to-right mask sweep, so it doesn't read like a prompt being typed
   // out. Following entries are delayed so they start after the echo fades in.
-  const echo = block.querySelector('.prompt-echo');
+  const echo = skipEcho ? null : block.querySelector('.prompt-echo');
   const echoOffset = echo ? ECHO_FADE_SECONDS : 0;
 
   const content = block.querySelector('.output-content');
@@ -298,10 +304,15 @@ export function animateLines(block) {
   // MAX_BLOCK_REVEAL_SECONDS, scale the rate up for this block only.
   let totalChars = 0;
   for (const e of entries) totalChars += e.chars;
-  const naturalTotal = totalChars / CHARS_PER_SECOND;
-  const rate = speedUpEnabled && naturalTotal > MAX_BLOCK_REVEAL_SECONDS
-    ? totalChars / MAX_BLOCK_REVEAL_SECONDS
-    : CHARS_PER_SECOND;
+  let rate;
+  if (targetDuration != null && targetDuration > 0 && totalChars > 0) {
+    rate = totalChars / targetDuration;
+  } else {
+    const naturalTotal = totalChars / CHARS_PER_SECOND;
+    rate = speedUpEnabled && naturalTotal > MAX_BLOCK_REVEAL_SECONDS
+      ? totalChars / MAX_BLOCK_REVEAL_SECONDS
+      : CHARS_PER_SECOND;
+  }
 
   let prevDelay = 0;
   let prevDuration = 0;
@@ -320,7 +331,7 @@ export function animateLines(block) {
     }
 
     el.classList.add('fade-line');
-    el.style.setProperty('--fade-delay', `${delay}s`);
+    el.style.setProperty('--fade-delay', `${delay - startOffset}s`);
     el.style.setProperty('--fade-duration', `${duration}s`);
 
     // Clear the fade-line class once done — otherwise the mask-image that
