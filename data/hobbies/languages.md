@@ -16,4 +16,6 @@
 Anki. I wrote a program a while ago to automate CJK flashcard creation (Chinese, Japanese, Korean on the same card, including 3 Chinese dialects), but I've since turned it into a simple Claude skill. Takes much longer but less susceptible to breakage every time the HTML changes slightly.
 
 Recently, have also been using Claude, e.g. JLPT practice or reading comprehension+short answer questions for my more advanced languages, simple translation to or from the target language for everything else.
+
 ## Okay, but why are you doing this? Google Translate and LLMs exist.
+Uh. Languages are pretty.

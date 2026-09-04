@@ -10,10 +10,10 @@ BS, Computer Science, GPA: 3.8/4.3
 **The Harker School** (Class of '17)
 
 ## Work Experience
-[Alliance Foundation]([https://worldalliance.org](https://worldalliance.org/)) (Mar 2026 - Present)
+[Alliance Foundation]([https://worldalliance.org](https://worldalliance.org/)) (Mar 2026 - Apr 2026)
 Volunteer contributing software engineer. San Francisco, CA (remote).
 
-**[Acrocyte Therapeutics](<https://www.acrocyte.com/>)** (Jul 2023 – Present)
+**[Acrocyte Therapeutics](<https://www.acrocyte.com/>)** (Jul 2023 – Jun 2026)
 Lead software engineer, Clinical R&D. New Taipei City, Taiwan.
 
 **[Brex](<https://www.brex.com/>)** (May 2021 – Oct 2022)

@@ -1,10 +1,7 @@
 # Reading
 
 **In Progress:**
-* AO3 source code
-- Act of Congress, Robert G. Kaiser
-- The Seduction of Culture in German History, Wolf Lepenies
-- God's Chinese Son, Jonathan D. Spence
+- Various textbooks and papers
 - Astral Codex Ten
 - Various Less Wrong posts
 - Various fanfiction
@@ -13,3 +10,6 @@
 * Strangers and Intimates, Tiffany Jenkins
 * A Brief History of Equality, Thomas Piketty & Steven Rendall
 * SMBC backlog
+* Act of Congress, Robert G. Kaiser
+* The Seduction of Culture in German History, Wolf Lepenies
+* God's Chinese Son, Jonathan D. Spence
