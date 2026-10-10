@@ -51,13 +51,35 @@
     transition: opacity 0s;
     pointer-events: none;
     cursor: pointer;
-    overflow: hidden;
+    overflow: visible;
     z-index: 10;
   }
   .name-overlay.visible {
     opacity: 1;
     transition: opacity 0.5s ease-out;
     pointer-events: auto;
+  }
+  .name-overlay::after {
+    content: 'click me';
+    position: absolute;
+    bottom: -2.8em;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    font-style: italic;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    color: rgb(220, 200, 230);
+    background: rgb(10, 8, 14);
+    border: 1px solid rgba(240, 130, 190, 0.45);
+    padding: 0.2em 0.6em;
+    opacity: 0;
+    transition: opacity 0.12s ease-out;
+    pointer-events: none;
+  }
+  .name-overlay.visible:hover:not(.loading)::after {
+    opacity: 1;
   }
   .fill {
     position: absolute;
